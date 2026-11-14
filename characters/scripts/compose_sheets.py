@@ -27,7 +27,6 @@ CHARS = [
     ("korney", "Палач Корней", "Не бегает — идёт. Глаз не видно, но он смотрит"),
     ("king", "Король", "Стена, а не финал. Чёрная корона"),
     ("peasant", "Крестьянин", "Враг: прёт толпой, бьёт вилами"),
-    ("ragman", "Крестьянин с тряпкой", "Враг: мокрая тряпка — бить первым"),
     ("guard", "Стража", "Враг: строй, копьё и щит"),
     ("bucketguard", "Стража с ведром", "Враг: выплёскивает воду — бить первым"),
     ("archer", "Лучник", "Враг: держит дистанцию"),
@@ -244,7 +243,7 @@ def scaled(fig, k):
 def lineup(figs):
     k = 0.5
     rows = [["zhdan0", "zhdan2", "zhdan4", "shadow", "limbo", "korney", "king"],
-            ["peasant", "ragman", "guard", "bucketguard", "archer", "gavrila", "agafya", "nikodim", "efim"]]
+            ["peasant", "guard", "bucketguard", "archer", "gavrila", "agafya", "nikodim", "efim"]]
     names = {c: n for c, n, _ in CHARS}
     gap, left, top, row_h, lab = 26, 150, 150, int(1500 * k), 70
     scaled_rows = [[(c, scaled(crop_cols(figs[c], 20), k)) for c in r if c in figs] for r in rows]
@@ -355,6 +354,48 @@ def corridor():
     path = os.path.join(OUTD, "corridor.png")
     save(out, path); report("corridor", out)
 
+EYE_VARIANTS = [
+    ("now", "1 · Сейчас", "прямоугольные точки"),
+    ("round", "2 · Круглые точки", "мельче и мягче"),
+    ("slits", "3 · Щели", "косые, к переносице"),
+    ("sockets", "4 · Провалы", "тёмные глазницы, искра в глубине"),
+    ("void", "5 · Пустые глазницы", "без света вообще"),
+    ("uneven", "6 · Разные", "один больше и ниже"),
+    ("vertical", "7 · Вертикальные", "узкие, как прорези"),
+    ("drips", "8 · Подтёки", "свет стекает по лицу"),
+    ("stare", "9 · Немигающий взгляд", "белые круги, точка-зрачок"),
+]
+
+def eyes_sheet():
+    """Nine eye styles on the Shadow's head (renders/raw/eyes_<key>.png -> renders/eyes_variants.png)."""
+    tiles = []
+    for i, (key, name, sub) in enumerate(EYE_VARIANTS):
+        p = os.path.join(RAW, f"eyes_{key}.png")
+        if not os.path.exists(p):
+            return
+        fig = load(p)
+        h, w = fig.shape[:2]
+        bg = np.repeat(night_bg(h, w, int(h * 0.98), 300 + i)[..., None], 3, axis=2) * 0.8 + 0.08
+        al = fig[..., 3:4]
+        out = fig[..., :3] * al + bg * (1 - al)
+        eyes, _ = masks(fig)
+        bloom = np.clip(box_blur(eyes, 5) * 3, 0, 1) * 0.55 + np.clip(box_blur(eyes, 22) * 6, 0, 1) * 0.3
+        out = out + bloom[..., None] * (1 - out)
+        out = finish(out, 400 + i, vign=0.7, grain=0.02)
+        im = Image.fromarray((out * 255).astype(np.uint8)).resize((600, 600), Image.LANCZOS)
+        tiles.append((im, name, sub))
+    pad, lab, top = 16, 92, 110
+    W = 3 * 600 + 4 * pad; H = top + 3 * (600 + lab) + pad
+    sheet = Image.new("RGB", (W, H), (8, 8, 8))
+    label(sheet, (pad + 8, 30), "Глаза: варианты на одной модели (Тень)", 46, (240, 240, 240))
+    for k, (im, name, sub) in enumerate(tiles):
+        x = pad + (k % 3) * (600 + pad); y = top + (k // 3) * (600 + lab)
+        sheet.paste(im, (x, y))
+        label(sheet, (x + 6, y + 610), name, 32, (235, 235, 235))
+        label(sheet, (x + 6, y + 652), sub, 24, (150, 150, 150), bold=False)
+    path = os.path.join(OUTD, "eyes_variants.png")
+    sheet.save(path); print("[saved]", os.path.relpath(path, ROOT))
+
 if __name__ == "__main__":
     only = sys.argv[2].split(",") if len(sys.argv) > 2 else None
     figs = {}
@@ -369,3 +410,5 @@ if __name__ == "__main__":
         silhouettes(figs)
     if not only or "corridor" in only:
         corridor()
+    if not only or "eyes" in only:
+        eyes_sheet()

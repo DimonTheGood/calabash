@@ -17,14 +17,16 @@ These are static concept meshes (no rig): pose and silhouette reference for the 
 """
 import bpy, math, random, sys, os, zlib
 from mathutils import Vector as V
+from mathutils.bvhtree import BVHTree
 
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 OUT = next((a for a in argv if not a.startswith("--")), os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 NORENDER = "--norender" in argv
 CORRIDOR = "--corridor" in argv
+EYES = "--eyes" in argv          # eye-style variants on the Shadow's head -> renders/raw/eyes_<k>.png
 ONLY = next((a.split("=", 1)[1].split(",") for a in argv if a.startswith("--only=")), None)
 RAW = os.path.join(OUT, "renders", "raw")
-RX, RY = (1600, 1200) if CORRIDOR else (1000, 1500)
+RX, RY = (1600, 1200) if CORRIDOR else ((900, 900) if EYES else (1000, 1500))
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 SC = bpy.context.scene
@@ -38,16 +40,32 @@ X, Y, Z = V((1, 0, 0)), V((0, 1, 0)), V((0, 0, 1))
 # =====================================================================
 # geometry accumulator: material -> (verts, faces). GLOW = no ink lines (eyes, embers)
 # =====================================================================
-GEO, GLOW = {}, {}
+GEO, GLOW, BODY, CLOTH = {}, {}, {}, {}
 CUR = [GEO]
 def acc(mat):
     return CUR[0].setdefault(mat, ([], []))
 
-class glow_layer:
+class layer:
+    """Geometry made inside `with layer(D):` goes to accumulator D."""
+    def __init__(self, d):
+        self.d = d
     def __enter__(self):
-        self.prev = CUR[0]; CUR[0] = GLOW
+        self.prev = CUR[0]; CUR[0] = self.d
     def __exit__(self, *a):
         CUR[0] = self.prev
+
+def glow_layer():
+    return layer(GLOW)
+
+def cloth(fn):
+    """Cloth pieces (skirts, hoods, capes, aprons) get a subdivision pass at export: soft folds."""
+    def wrapped(*a, **k):
+        if CUR[0] is GEO:
+            with layer(CLOTH):
+                return fn(*a, **k)
+        return fn(*a, **k)
+    wrapped.__name__ = fn.__name__
+    return wrapped
 
 FACES6 = {"bottom": (0, 3, 2, 1), "top": (4, 5, 6, 7), "front": (0, 1, 5, 4),
           "right": (1, 2, 6, 5), "back": (2, 3, 7, 6), "left": (3, 0, 4, 7)}
@@ -108,15 +126,23 @@ def loft(sections, mat, cap0=True, cap1=True):
     if cap1:
         fs.append(tuple(b + (len(secs) - 1) * n + i for i in range(n)))
 
+@cloth
 def sheet(rows, mat):
     """Open strip surface through polylines of equal length (capes, aprons)."""
     vs, fs = acc(mat); b = len(vs); n = len(rows[0])
     for r in rows:
         vs.extend(V(p) for p in r)
+    out = 0.0                                          # face away from the body axis (x = y = 0)
+    quads = []
     for k in range(len(rows) - 1):
         for i in range(n - 1):
             a0 = b + k * n + i
-            fs.append((a0, a0 + 1, a0 + 1 + n, a0 + n))
+            q = (a0, a0 + 1, a0 + 1 + n, a0 + n)
+            pts = [vs[j] for j in q]
+            c = sum(pts, V()) / 4
+            out += newell(pts).dot(V((c.x, c.y, 0)))
+            quads.append(q)
+    fs.extend(tuple(reversed(q)) if out < 0 else q for q in quads)
 
 def prism(O, ex, ey, ez, pts, z0, z1, mat):
     loft([[O + ex * x + ey * y + ez * z for x, y in pts] for z in (z0, z1)], mat)
@@ -175,6 +201,7 @@ def cone(base, axis, r, L, mat, n=4):
 def lerp(a, b, t):
     return V(a) + (V(b) - V(a)) * t
 
+@cloth
 def skirt(levels, mat, n=14, jag=0.0, cap_top=True, seed=None):
     """levels: [(centre, (rx, ry)), ...] top to bottom. jag > 0 gives a torn zig-zag hem."""
     rings = []
@@ -252,7 +279,7 @@ DEF = dict(leg=0.88, crouch=0.0, torso=0.52, hunch=0.05, lean_x=0.0, sh_w=0.2, s
            neck=0.09, neck_r=0.045, head_r=0.09, head_d=1.1, head_h=0.23, head_fwd=0.15, head_side=0.0,
            upper=0.3, fore=0.27, arm_r=0.042, thigh_r=0.07, calf_r=0.05, foot_w=0.045, foot_l=0.17,
            hand=0.1, finger=0.08, palm_w=0.075, finger_r=0.009, arm_out=0.07,
-           hands=None, poles=None, hdir=None, curl=None, nohands=(), eyes=True, eye_r=0.011, eye_gap=0.032,
+           hands=None, poles=None, hdir=None, curl=None, nohands=(), spread=0.12, eye_style="round", eyes=True, eye_r=0.011, eye_gap=0.032,
            eye_mat="M_Glow", eye_z=0.0, head=True, m=None)
 MDEF = dict(torso="M_Dark", upper="M_Dark", fore="M_Dark", hand="M_Black", thigh="M_Black", shin="M_Black",
             foot="M_Ink", head="M_Ink", neck="M_Ink")
@@ -268,8 +295,16 @@ def ik(S, W, a, b, pole):
     p = perp(dn, pole.normalized())
     return S + dn * a * ca + p * a * sa, S + dn * L
 
+# who gets which eyes: round = living, frightened people; slit = hostile / spiteful (and Zhdan once the
+# malice starts, doc 01: "it shows in the eyes before the fire"); vertical = not human (the Shadow).
+# Korney (hood slits), Efim (bandage), Limbo (no face) and Zhdan 4 (fire in the sockets) keep their own.
+EYE_STYLE = {"zhdan0": "round", "zhdan2": "slit", "shadow": "vertical", "king": "slit", "peasant": "slit",
+             "guard": "slit", "bucketguard": "slit", "archer": "slit", "gavrila": "round", "agafya": "round",
+             "nikodim": "round"}
+CUR_CID = [None]
+
 def skeleton(**kw):
-    P = dict(DEF); P.update(kw)
+    P = dict(DEF); P["eye_style"] = EYE_STYLE.get(CUR_CID[0], "round"); P.update(kw)
     m = dict(MDEF); m.update(kw.get("m") or {}); P["m"] = m
     J = {}
     hz = P["leg"] - P["crouch"]
@@ -303,7 +338,10 @@ def skeleton(**kw):
     J["fwd"] = X.cross(a).normalized()
     return P, J
 
+NO_EYES = [False]
 def eyes(J, P, c=None, rx=None, ry=None, mat=None, r=None, gap=None, dz=None):
+    if NO_EYES[0]:
+        return
     c = J["head_c"] if c is None else c
     rx = P["head_r"] if rx is None else rx
     ry = P["head_r"] * P["head_d"] if ry is None else ry
@@ -311,12 +349,29 @@ def eyes(J, P, c=None, rx=None, ry=None, mat=None, r=None, gap=None, dz=None):
     gap = P["eye_gap"] if gap is None else gap
     dz = P["eye_z"] if dz is None else dz
     a, f = J["head_a"], J["fwd"]
+    style, mat = P["eye_style"], mat or P["eye_mat"]
+    rz = P["head_h"] * 0.5
+    def surf(x, z, lift=0.002):
+        k = max(0.04, 1 - (x / rx) ** 2 - 0.55 * (z / rz) ** 2)
+        return c + X * x + a * z + f * (ry * math.sqrt(k) + lift)
     with glow_layer():
         for s in (-1, 1):
             x = s * gap
-            p = c + X * x + a * dz + f * (ry * math.sqrt(max(0.05, 1 - (x / rx) ** 2)) + 0.002)
-            ex = X; ey = f; ez = ex.cross(ey)
-            fbox(p, ex, ey, ez, -r, r, 0.0, r * 0.6, -r * 0.8, r * 0.8, mat or P["eye_mat"])
+            if style == "box":                       # the first version: little blocks
+                p = c + X * x + a * dz + f * (ry * math.sqrt(max(0.05, 1 - (x / rx) ** 2)) + 0.002)
+                ex = X; ey = f; ez = ex.cross(ey)
+                fbox(p, ex, ey, ez, -r, r, 0.0, r * 0.6, -r * 0.8, r * 0.8, mat)
+                continue
+            # round: soft points | slit: almond tilted down to the nose | vertical: narrow upright cuts
+            wx, wz, rot, almond = {"round": (r * 0.8, r * 0.8, 0.0, False),
+                                   "slit": (r * 1.6, r * 0.42, s * math.radians(-17), True),
+                                   "vertical": (r * 0.38, r * 2.0, 0.0, False)}[style]
+            pts = []
+            for k in range(16):
+                t = 2 * math.pi * k / 16
+                x0, z0 = wx * math.cos(t), wz * math.sin(t) * (abs(math.sin(t)) if almond else 1.0)
+                pts.append(surf(x + x0 * math.cos(rot) - z0 * math.sin(rot), dz + x0 * math.sin(rot) + z0 * math.cos(rot)))
+            ngon(pts, mat)
 
 def face_patch(J, c, rx, ry, wx, wz, mat="M_Void", n=12, dz=0.0):
     """Dark face opening following the front curve of a hood / head."""
@@ -339,53 +394,82 @@ def hand(J, P, s, curl=None, mat=None):
     fl, fr = P["finger"], P["finger_r"]
     for i, k in enumerate((0.85, 1.0, 0.95, 0.78)):
         b = Wr + hd * pl + across * (-w / 2 + w * (i + 0.5) / 4) * 0.9
-        dd = (hd + across * (i - 1.5) * 0.12).normalized(); L = fl * k
+        dd = (hd + across * (i - 1.5) * P["spread"]).normalized(); L = fl * k
         mid = b + dd * L * 0.5 + pn * L * 0.12 * curl
         tip = mid + (dd * (1 - curl) + pn * curl * 1.2).normalized() * L * 0.5
-        tube([b, mid, tip], [fr, fr * 0.85, fr * 0.45], mat, n=4)
+        tube([b, mid, tip], [fr, fr * 0.85, fr * 0.6], mat, n=6)
     ts = -1 if across.y > 0 else 1
     b = Wr + hd * pl * 0.3 + across * ts * w * 0.5
     d = (hd * 0.5 + across * ts * 0.6 + pn * 0.35).normalized()
-    tube([b, b + d * fl * 0.35, b + (d + pn * 0.6 * curl).normalized() * fl * 0.62], [fr * 1.1, fr, fr * 0.5], mat, n=4)
+    tube([b, b + d * fl * 0.35, b + (d + pn * 0.6 * curl).normalized() * fl * 0.62], [fr * 1.1, fr, fr * 0.6], mat, n=6)
 
 def body(P, J, legs=True, arms=True, torso=True, head=True):
+    """Skin and tight clothing. Built from overlapping parts, then fused by a voxel remesh into one
+    smooth surface (see emit_smooth), so joints flow into each other."""
+    with layer(BODY):
+        _body(P, J, legs, arms, torso, head)
+
+def _body(P, J, legs, arms, torso, head):
     m = P["m"]
     sp = J["spine"]
+    th, ca, ar = P["thigh_r"], P["calf_r"], P["arm_r"]
     if legs:
         for s in (-1, 1):
             hip, knee, ank = J["hip", s], J["knee", s], J["ank", s]
-            tube([hip, lerp(hip, knee, 0.5), knee], [P["thigh_r"], P["thigh_r"] * 0.85, P["calf_r"] * 1.12],
-                 side_mat(m["thigh"], s))
-            tube([knee, lerp(knee, ank, 0.4), ank], [P["calf_r"] * 1.12, P["calf_r"], P["calf_r"] * 0.62],
-                 side_mat(m["shin"], s))
+            fw = V((0, -1, 0))
+            tube([lerp(hip, knee, f) + fw * th * o for f, o in ((-0.08, 0.0), (0.25, 0.18), (0.55, 0.14), (0.82, 0.02),
+                                                                 (1.0, 0.0))],
+                 [th * 1.02, th * 1.02, th * 0.88, ca * 1.15, ca * 1.08], side_mat(m["thigh"], s), n=12)
+            tube([lerp(knee, ank, f) - fw * ca * o for f, o in ((0.0, 0.0), (0.18, 0.32), (0.38, 0.26), (0.7, 0.05),
+                                                                (1.0, 0.0))],
+                 [ca * 1.08, ca * 1.18, ca * 1.0, ca * 0.66, ca * 0.56], side_mat(m["shin"], s), n=12)
+            blob(knee + fw * ca * 0.55 + V((0, 0, 0.01)), ca * 0.6, side_mat(m["thigh"], s), n=10, k=5)
             toe = V((s * math.sin(math.radians(10)), -math.cos(math.radians(10)), 0))
-            tube([ank + V((0, 0.035, -0.03)), ank + toe * P["foot_l"] * 0.5 + V((0, 0, -0.045)),
-                  ank + toe * P["foot_l"] + V((0, 0, -0.06))],
-                 [(P["foot_w"], 0.04), (P["foot_w"], 0.032), (P["foot_w"] * 0.8, 0.022)], side_mat(m["foot"], s), n=6)
+            tube([ank + V((0, 0.04, -0.035)), ank + toe * P["foot_l"] * 0.15 + V((0, 0, -0.03)),
+                  ank + toe * P["foot_l"] * 0.55 + V((0, 0, -0.05)), ank + toe * P["foot_l"] + V((0, 0, -0.062))],
+                 [(P["foot_w"] * 0.8, 0.045), (P["foot_w"], 0.045), (P["foot_w"], 0.032), (P["foot_w"] * 0.75, 0.02)],
+                 side_mat(m["foot"], s), n=10)
     if torso:
         hx, wx, cx = P["hips"], P["waist"], P["chest"]
-        rad = [hx, tuple(lerp(V((*hx, 0)), V((*wx, 0)), 0.6)[:2]), wx, cx, (P["sh_w"] * 0.8, cx[1] * 0.85)]
-        tube(sp, rad, m["torso"], n=10)
+        def mix(a, b, t):
+            return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t)
+        top = (P["sh_w"] * 0.66, cx[1] * 0.8)
+        pts, rad = [], []
+        for f, r in ((0.0, mix(hx, wx, 0.0)), (0.12, mix(hx, wx, 0.35)), (0.25, mix(hx, wx, 0.6)), (0.45, wx),
+                     (0.62, mix(wx, cx, 0.6)), (0.78, cx), (0.9, mix(cx, top, 0.5)), (1.0, top)):
+            k = f * 4; i = min(3, int(k))
+            bulge = {0.0: 0.1, 0.12: 0.08, 0.62: -0.06, 0.78: -0.12, 0.9: -0.06}.get(f, 0.0)   # glutes / chest
+            pts.append(lerp(sp[i], sp[i + 1], k - i) + V((0, -bulge * cx[1] if bulge < 0 else bulge * hx[1], 0)))
+            rad.append(r)
+        tube(pts, rad, m["torso"], n=16)
         L, Rr = J["sh", 1], J["sh", -1]
-        tube([Rr, sp[-1] + V((0, 0, -P["sh_drop"])), L], [(cx[1] * 0.72, P["arm_r"] * 1.25)] * 3, m["torso"], n=8)
+        tube([Rr, sp[-1] + V((0, 0, -P["sh_drop"])), L], [(cx[1] * 0.72, ar * 1.25)] * 3, m["torso"], n=10)
+        for s in (-1, 1):                                 # trapezius: neck slopes down into the shoulders
+            tube([J["neck_b"] + V((0, 0.01, 0.0)), lerp(J["neck_b"], J["sh", s], 0.55) + V((0, 0.01, -0.01)),
+                  J["sh", s] + V((0, 0.0, 0.0))], [P["neck_r"] * 1.15, ar * 1.3, ar * 1.1], m["torso"], n=10)
     if arms:
         for s in (-1, 1):
             S, E, Wr = J["sh", s], J["elb", s], J["wr", s]
-            blob(S, P["arm_r"] * 1.35, side_mat(m["upper"], s), n=8, k=4)
-            tube([S, lerp(S, E, 0.5), E], [P["arm_r"] * 1.15, P["arm_r"], P["arm_r"] * 0.85], side_mat(m["upper"], s))
-            tube([E, lerp(E, Wr, 0.5), Wr], [P["arm_r"] * 0.85, P["arm_r"] * 0.78, P["arm_r"] * 0.6], side_mat(m["fore"], s))
+            blob(S, ar * 1.35, side_mat(m["upper"], s), n=12, k=6)
+            out = V((s, 0, 0))
+            tube([lerp(S, E, f) + V((0, -ar * o, 0)) for f, o in ((0.0, 0.0), (0.3, 0.12), (0.6, 0.15), (1.0, 0.0))],
+                 [ar * 1.22, ar * 1.1, ar * 1.0, ar * 0.8], side_mat(m["upper"], s), n=12)
+            tube([lerp(E, Wr, f) + out * ar * o for f, o in ((0.0, 0.0), (0.22, 0.18), (0.55, 0.1), (1.0, 0.0))],
+                 [ar * 0.82, ar * 0.92, ar * 0.72, ar * 0.55], side_mat(m["fore"], s), n=12)
             if s not in P["nohands"]:
                 hand(J, P, s)
     if head:
         tube([J["neck_b"] - V((0, 0, 0.03)), J["head_b"] + J["head_a"] * 0.04], [P["neck_r"], P["neck_r"] * 0.9],
-             m["neck"], n=8)
+             m["neck"], n=12)
         if P["head"]:
             hb, a, hh, hr, hd = J["head_b"], J["head_a"], P["head_h"], P["head_r"], P["head_r"] * P["head_d"]
-            prof = [(0.0, 0.55), (0.15, 0.86), (0.4, 1.0), (0.7, 0.96), (0.9, 0.72), (1.0, 0.3)]
-            tube([hb + a * hh * f for f, _ in prof], [(hr * k, hd * k) for _, k in prof], m["head"], n=12)
+            prof = [(0.0, 0.5), (0.1, 0.78), (0.25, 0.93), (0.45, 1.0), (0.65, 0.98), (0.82, 0.86), (0.94, 0.6),
+                    (1.0, 0.25)]
+            tube([hb + a * hh * f for f, _ in prof], [(hr * k, hd * k) for _, k in prof], m["head"], n=16)
             if P["eyes"]:
                 eyes(J, P)
 
+@cloth
 def hood(P, J, mat, scale=1.32, drape=None, tip_back=0.06, tip_up=0.04, face=True, face_mat="M_Void",
          want_eyes=True, n=12, low=0.1):
     a, hb, hh, hr = J["head_a"], J["head_b"], P["head_h"], P["head_r"]
@@ -621,7 +705,7 @@ def char_shadow():
     base = dict(leg=1.5, crouch=0.04, torso=0.85, hunch=0.12, sh_w=0.3, sh_drop=0.0, hips=(0.13, 0.08), waist=(0.105, 0.07),
                 chest=(0.25, 0.11), hip_w=0.14, foot_sep=0.13, neck=0.13, neck_r=0.034, head_r=0.13, head_d=0.82,
                 head_h=0.25, head_fwd=0.22, upper=0.62, fore=0.6, arm_r=0.03, thigh_r=0.055, calf_r=0.036,
-                foot_w=0.035, foot_l=0.2, hand=0.17, finger=0.21, palm_w=0.07, finger_r=0.0075,
+                foot_w=0.035, foot_l=0.2, hand=0.17, finger=0.21, palm_w=0.088, finger_r=0.0078, spread=0.3,
                 eye_r=0.0085, eye_gap=0.046, eye_z=0.01,
                 m=dict(torso="M_Ink", upper="M_Ink", fore="M_Ink", hand="M_Ink", thigh="M_Ink", shin="M_Ink",
                        foot="M_Ink", head="M_Ink", neck="M_Ink"))
@@ -634,7 +718,7 @@ def char_shadow():
 
 def char_korney():
     """Executioner Korney: huge, square, never runs. Pointed hood with two slits, bloody apron, axe."""
-    base = dict(leg=0.98, torso=0.75, hunch=0.03, sh_w=0.4, sh_drop=0.0, hips=(0.3, 0.22), waist=(0.33, 0.25),
+    base = dict(leg=0.98, torso=0.75, hunch=0.03, sh_w=0.4, sh_drop=0.06, hips=(0.3, 0.22), waist=(0.33, 0.25),
                 chest=(0.38, 0.26), hip_w=0.28, foot_sep=0.22, neck=0.06, neck_r=0.12, head_r=0.13, head_h=0.28,
                 head_fwd=0.05, upper=0.38, fore=0.36, arm_r=0.085, thigh_r=0.13, calf_r=0.1, foot_w=0.07, foot_l=0.26,
                 hand=0.16, finger=0.1, palm_w=0.14, finger_r=0.02, arm_out=0.06, eyes=False, head=False,
@@ -681,7 +765,7 @@ def char_korney():
 def char_king():
     """The King: the heaviest figure in the game, but human. Black crown with white hatching, ermine
     collar, open mantle to the ground, sceptre."""
-    base = dict(leg=0.9, torso=0.62, hunch=0.0, sh_w=0.3, sh_drop=0.02, hips=(0.27, 0.22), waist=(0.3, 0.28),
+    base = dict(leg=0.9, torso=0.62, hunch=0.0, sh_w=0.3, sh_drop=0.06, hips=(0.27, 0.22), waist=(0.3, 0.28),
                 chest=(0.3, 0.22), hip_w=0.24, foot_sep=0.15, neck=0.05, neck_r=0.08, head_r=0.11, head_h=0.26,
                 head_fwd=0.05, upper=0.33, fore=0.3, arm_r=0.07, thigh_r=0.11, calf_r=0.08, foot_w=0.055,
                 hand=0.11, finger=0.08, palm_w=0.09, finger_r=0.014, eye_gap=0.038,
@@ -759,32 +843,7 @@ def char_peasant():
     pitchfork(A, B)
     return P, J
 
-def char_ragman():
-    """Enemy: peasant with a wet rag. Arms hang low; the rag is the only blue thing on him."""
-    P, J = skeleton(**dict(PEASANT, hunch=0.2, head_fwd=0.45, upper=0.33, fore=0.32, arm_out=0.1, step=0.04),
-                    curl={-1: 0.85, 1: 0.4}, hdir={-1: (0, -0.2, -1)},
-                    m=dict(torso="M_Cloth", upper="M_Cloth", fore="M_Skin", hand="M_Black", thigh="M_Black",
-                           shin="M_Black", foot="M_Wood", head="M_Ink"))
-    body(P, J)
-    sp = J["spine"]
-    skirt([(sp[1], (0.185, 0.135)), (V((0, sp[0].y, 0.56)), (0.25, 0.2))], "M_Cloth", jag=0.07)
-    rope_ring(sp[1], 0.19, 0.14, 0.013, "M_Wood")
-    for s in (-1, 1):                                                   # rolled-up sleeves
-        E = J["elb", s]
-        tube([E + V((0, 0, 0.04)), E - V((0, 0, 0.03))], [0.06, 0.06], "M_Cloth", n=8)
-    Wr = J["wr", -1]
-    top = Wr + V((0, -0.04, -0.05))
-    pts = [top, top + V((0.02, -0.03, -0.18)), top + V((-0.03, -0.01, -0.36)), top + V((0.01, 0.03, -0.52)),
-           top + V((0.04, 0.02, -0.62))]
-    tube(pts, [(0.06, 0.018), (0.07, 0.016), (0.065, 0.015), (0.05, 0.013), (0.03, 0.01)], "M_Water", n=6, jit=0.15,
-         ref=Y)
-    for k in range(4):
-        p = pts[-1] + V((R(-0.03, 0.03), R(-0.02, 0.02), -0.04 - 0.07 * k))
-        cone(p + Z * 0.012, (0, 0, -1), 0.006, 0.02, "M_Water")
-    blob(V((pts[-1].x + 0.03, pts[-1].y, 0.004)), 0.13, "M_WaterDeep", n=10, k=2, sq=(1.2, 0.8, 0.03))
-    return P, J
-
-GUARD = dict(leg=0.95, torso=0.56, hunch=0.0, sh_w=0.23, hips=(0.15, 0.11), waist=(0.15, 0.11), chest=(0.2, 0.14),
+GUARD = dict(eye_z=-0.03, leg=0.95, torso=0.56, hunch=0.0, sh_w=0.23, hips=(0.15, 0.11), waist=(0.15, 0.11), chest=(0.2, 0.14),
              hip_w=0.15, foot_sep=0.13, neck=0.08, neck_r=0.05, head_r=0.09, head_h=0.23, head_fwd=0.05, upper=0.32,
              fore=0.29, arm_r=0.048, thigh_r=0.075, calf_r=0.055, hand=0.1, finger=0.075, palm_w=0.08, finger_r=0.011)
 
@@ -876,7 +935,7 @@ def char_archer():
 def char_gavrila():
     """Victim #1, baker Gavrila: a barrel in an apron, flour-white face (black dot eyes), hands black
     from the oven - the mirror of Zhdan. Holds out a loaf."""
-    base = dict(leg=0.78, torso=0.6, hunch=0.03, sh_w=0.27, hips=(0.3, 0.26), waist=(0.37, 0.34), chest=(0.32, 0.26),
+    base = dict(leg=0.78, torso=0.6, hunch=0.03, sh_w=0.27, sh_drop=0.08, spread=0.2, hips=(0.3, 0.26), waist=(0.37, 0.34), chest=(0.32, 0.26),
                 hip_w=0.24, foot_sep=0.16, neck=0.03, neck_r=0.09, head_r=0.11, head_h=0.24, head_fwd=0.1,
                 upper=0.28, fore=0.26, arm_r=0.065, thigh_r=0.11, calf_r=0.075, hand=0.1, finger=0.07, palm_w=0.09,
                 finger_r=0.014, eye_mat="M_Void", eye_r=0.019, eye_gap=0.043, eye_z=0.01,
@@ -894,9 +953,9 @@ def char_gavrila():
         row = []
         for i in range(7):
             x = -hw + 2 * hw * i / 6
-            depth = ry * math.sqrt(max(0.05, 1 - (x / rx) ** 2)) + 0.018
+            depth = ry * math.sqrt(max(0.05, 1 - (x / rx) ** 2)) + 0.045
             if flat:
-                depth = max(depth, flat - 0.06 * (x / hw) ** 2)
+                depth = max(depth, flat - 0.06 * (x / hw) ** 2, -rows[-1][i].y)   # hangs straight off the belly
             row.append(V((x, -depth, z + (R(-0.015, 0.0) if z < 0.5 else 0))))
         rows.append(row)
     sheet(rows, "M_Pale")
@@ -904,9 +963,10 @@ def char_gavrila():
     tube([t - a * 0.08, t - a * 0.05], [(0.112, 0.122), (0.115, 0.125)], "M_Pale", n=12)
     blob(t + a * 0.0 + V((0.03, 0.02, 0)), 0.135, "M_Pale", n=12, k=5, sq=(1.05, 1.0, 0.55), jit=0.08)
     Wr, hd = J["wr", 1], J["hd", 1]
-    blob(Wr + hd * 0.08 + V((0, -0.04, 0.05)), 0.11, "M_Bread", n=10, k=5, sq=(1.15, 0.9, 0.62))
+    lc = Wr + V((0.0, -0.1, 0.075))                                        # loaf resting on the palm
+    blob(lc, 0.1, "M_Bread", n=12, k=6, sq=(1.2, 0.9, 0.6))
     for k in range(3):
-        c = Wr + hd * 0.08 + V((-0.06 + 0.06 * k, -0.135, 0.09))
+        c = lc + V((-0.06 + 0.06 * k, -0.02, 0.055))
         seg(c - V((0.02, 0, 0.012)), c + V((0.02, 0, 0.012)), 0.008, "M_Black")
     # a smudge of soot on the forearm, flour dust on the trousers
     return P, J
@@ -1047,7 +1107,6 @@ CHARS = [  # id, builder, label, subtitle
     ("korney", char_korney, "Палач Корней", "Не бегает — идёт. Всегда смотрит"),
     ("king", char_king, "Король", "Стена, а не финал. Чёрная корона"),
     ("peasant", char_peasant, "Крестьянин", "Враг: прёт толпой, вилы"),
-    ("ragman", char_ragman, "Крестьянин с мокрой тряпкой", "Враг: голубое — бить первым"),
     ("guard", char_guard, "Стража", "Враг: строй, копьё и щит"),
     ("bucketguard", char_bucketguard, "Стража с ведром", "Враг: выплёскивает воду"),
     ("archer", char_archer, "Лучник", "Враг: держит дистанцию"),
@@ -1237,6 +1296,13 @@ def emit(name, coll, mats, src):
         me.materials.append(mats[m])
     me.polygons.foreach_set("material_index", mids)
     me.validate(clean_customdata=False)
+    box_uv(me)
+    ob = bpy.data.objects.new(name, me); coll.objects.link(ob)
+    src.clear()
+    return ob
+
+def box_uv(me):
+    """Box-projected UVs (1 UV unit = 1 m) so textures / lightmap UVs can be added in Unity."""
     uv = me.uv_layers.new(name="UVMap")
     for p in me.polygons:
         nx, ny, nz = (abs(c) for c in p.normal)
@@ -1244,10 +1310,66 @@ def emit(name, coll, mats, src):
             co = me.vertices[me.loops[li].vertex_index].co
             uv.data[li].uv = (co.x, co.y) if nz >= max(nx, ny) else ((co.y, co.z) if nx >= ny else (co.x, co.z))
     me.update()
-    ob = bpy.data.objects.new(name, me); coll.objects.link(ob)
-    src.clear()
+
+VOXEL, BODY_TRIS = 0.0035, 10000
+def evaluated(ob):
+    bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = bpy.data.meshes.new_from_object(ob.evaluated_get(dg))
+    old = ob.data; ob.modifiers.clear(); ob.data = me
+    bpy.data.meshes.remove(old)
+    return me
+
+def emit_smooth(name, coll, mats, src):
+    """Fuse the overlapping body parts into one surface: voxel remesh -> light smooth -> decimate to a
+    low-poly budget -> smooth shading. Materials come back from the nearest face of the source parts."""
+    ob = emit(name, coll, mats, src)
+    if ob is None:
+        return None
+    me0 = ob.data
+    order = [m.name for m in me0.materials]
+    tree = BVHTree.FromPolygons([v.co.copy() for v in me0.vertices], [tuple(p.vertices) for p in me0.polygons])
+    mids0 = [p.material_index for p in me0.polygons]
+    r = ob.modifiers.new("Remesh", "REMESH"); r.mode = "VOXEL"; r.voxel_size = VOXEL; r.adaptivity = 0.0
+    sm = ob.modifiers.new("Smooth", "SMOOTH"); sm.factor = 0.5; sm.iterations = 3
+    me = evaluated(ob)
     tris = sum(len(p.vertices) - 2 for p in me.polygons)
-    print(f"[mesh] {name}: {len(me.vertices)} verts, {tris} tris")
+    if tris > BODY_TRIS:
+        d = ob.modifiers.new("Decimate", "DECIMATE"); d.ratio = BODY_TRIS / tris
+        me = evaluated(ob)
+    me.materials.clear()
+    for n in order:
+        me.materials.append(mats[n])
+    idx = []
+    for p in me.polygons:
+        hit = tree.find_nearest(p.center)
+        idx.append(mids0[hit[2]] if hit[2] is not None else 0)
+    me.polygons.foreach_set("material_index", idx)
+    me.shade_smooth()
+    for l in list(me.uv_layers):
+        me.uv_layers.remove(l)
+    box_uv(me)
+    return ob
+
+def emit_character(name, coll, mats):
+    """One mesh per character: the fused smooth body + clothing / props (smoothed by angle)."""
+    body = emit_smooth(name + "_Body", coll, mats, BODY)
+    gear = emit(name, coll, mats, GEO)
+    if gear is not None:
+        gear.data.shade_smooth()
+        gear.data.set_sharp_from_angle(angle=math.radians(50))
+    cl = emit(name + "_Cloth", coll, mats, CLOTH)
+    if cl is not None:
+        sub = cl.modifiers.new("Subsurf", "SUBSURF"); sub.levels = sub.render_levels = 1
+        evaluated(cl).shade_smooth()
+    parts = [o for o in (gear, body, cl) if o is not None]
+    if len(parts) > 1:
+        with bpy.context.temp_override(active_object=parts[0], selected_editable_objects=parts,
+                                       selected_objects=parts):
+            bpy.ops.object.join()
+    ob = parts[0]; ob.name = name
+    tris = sum(len(p.vertices) - 2 for p in ob.data.polygons)
+    print(f"[mesh] {name}: {len(ob.data.vertices)} verts, {tris} tris")
     return ob
 
 mats = make_materials()
@@ -1258,19 +1380,96 @@ C_CAMS = collection("COL_Cameras")
 
 built = {}
 for cid, fn, label, sub in CHARS:
-    if CORRIDOR and cid != "shadow":
+    if (CORRIDOR or EYES) and cid != "shadow":
         continue
-    if ONLY and cid not in ONLY and not CORRIDOR:
+    if ONLY and cid not in ONLY and not (CORRIDOR or EYES):
         continue
     rng.seed(zlib.crc32(cid.encode()))
-    GEO.clear(); GLOW.clear(); CUR[0] = GEO
+    GEO.clear(); GLOW.clear(); BODY.clear(); CLOTH.clear(); CUR[0] = GEO
+    NO_EYES[0] = EYES; CUR_CID[0] = cid
     P, J = fn()
+    NO_EYES[0] = False
+    PJ = (P, J)
     cc = collection(f"CH_{cid}", C_CHARS)
-    ob = emit(f"SM_Char_{cid}", cc, mats, GEO)
+    ob = emit_character(f"SM_Char_{cid}", cc, mats)
     gl = emit(f"SM_Char_{cid}_Glow", C_NOINK, mats, GLOW)
     bb = [V(c) for c in ob.bound_box]
     print(f"[size] {cid}: height {max(v.z for v in bb):.2f} m, width {max(v.x for v in bb) - min(v.x for v in bb):.2f} m")
     built[cid] = (ob, gl)
+
+# =====================================================================
+# eye variants (--eyes): the same head, different eyes
+# =====================================================================
+EYE_VARIANTS = [
+    ("now", "Сейчас", "прямоугольные точки"),
+    ("round", "Круглые точки", "мельче и мягче"),
+    ("slits", "Щели", "косые, к переносице"),
+    ("sockets", "Провалы", "тёмные глазницы, искра в глубине"),
+    ("void", "Пустые глазницы", "без света вообще"),
+    ("uneven", "Разные", "один больше и ниже"),
+    ("vertical", "Вертикальные", "узкие, как прорези"),
+    ("drips", "Подтёки", "свет стекает по лицу"),
+    ("stare", "Немигающий взгляд", "белые круги, точка-зрачок"),
+]
+
+def eye_variant(key, P, J):
+    c, a, f = J["head_c"], J["head_a"], J["fwd"]
+    rx, ry, rz = P["head_r"], P["head_r"] * P["head_d"], P["head_h"] * 0.5
+    def surf(x, z, lift=0.002):
+        k = max(0.04, 1 - (x / rx) ** 2 - 0.55 * (z / rz) ** 2)
+        return c + X * x + a * z + f * (ry * math.sqrt(k) + lift)
+    def disc(cx, cz, wx, wz, mat, n=14, rot=0.0, lift=0.002, almond=False):
+        pts = []
+        for k in range(n):
+            t = 2 * math.pi * k / n
+            x0, z0 = wx * math.cos(t), wz * math.sin(t) * (abs(math.sin(t)) if almond else 1.0)
+            pts.append(surf(cx + x0 * math.cos(rot) - z0 * math.sin(rot), cz + x0 * math.sin(rot) + z0 * math.cos(rot), lift))
+        ngon(pts, mat)
+    g, ez = 0.046, 0.012
+    with glow_layer():
+        if key == "now":
+            NO_EYES[0] = False; eyes(J, dict(P, eye_style="box"))
+        elif key == "round":
+            for s in (-1, 1):
+                disc(s * g, ez, 0.0075, 0.0075, "M_Glow")
+        elif key == "slits":
+            for s in (-1, 1):
+                disc(s * g, ez, 0.017, 0.0042, "M_Glow", rot=s * math.radians(-17), almond=True)
+        elif key == "sockets":
+            for s in (-1, 1):
+                disc(s * g * 1.02 + s * 0.002, ez - 0.002, 0.0028, 0.0028, "M_Glow", n=8, lift=0.004)
+        elif key == "uneven":
+            disc(-g, ez, 0.0105, 0.0105, "M_Glow")
+            disc(g * 0.95, ez - 0.012, 0.0045, 0.0045, "M_Glow")
+        elif key == "vertical":
+            for s in (-1, 1):
+                disc(s * g * 0.85, ez + 0.004, 0.0035, 0.02, "M_Glow", almond=False)
+        elif key == "drips":
+            for s in (-1, 1):
+                cx = s * g
+                disc(cx, ez, 0.0075, 0.0075, "M_Glow")
+                for k, (dx, L, w) in enumerate(((0.0, 0.07, 0.0028), (s * 0.004, 0.035, 0.002))):
+                    x0 = cx + dx
+                    ngon([surf(x0 - w, ez - 0.004), surf(x0 + w, ez - 0.004), surf(x0 + w * 0.7, ez - L * 0.6),
+                          surf(x0 + w * 1.1, ez - L), surf(x0, ez - L - 0.008), surf(x0 - w * 1.1, ez - L),
+                          surf(x0 - w * 0.7, ez - L * 0.6)], "M_Glow")
+        elif key == "stare":
+            for s in (-1, 1):
+                disc(s * g * 1.05, ez, 0.019, 0.017, "M_Glow", n=18)
+                disc(s * g * 1.05 + s * -0.004, ez + 0.001, 0.0062, 0.0062, "M_Void", n=12, lift=0.0035)
+    if key in ("sockets", "void"):                       # inked dark hollows
+        for s in (-1, 1):
+            r = 0.019 if key == "sockets" else 0.024
+            disc(s * g * 1.02, ez - 0.002, r, r * 0.85, "M_Void", n=16, rot=s * math.radians(-12), lift=0.0015)
+
+eye_obs = []
+if EYES:
+    P, J = PJ
+    for k, (key, name, sub) in enumerate(EYE_VARIANTS):
+        GEO.clear(); GLOW.clear(); CUR[0] = GEO
+        eye_variant(key, P, J)
+        eye_obs.append([o for o in (emit(f"EYE_{key}_Ink", C_SET, mats, GEO),
+                                    emit(f"EYE_{key}_Glow", C_NOINK, mats, GLOW)) if o])
 
 # =====================================================================
 # corridor set (--corridor): stone passage, the Shadow in the far doorway against the snow outside
@@ -1429,11 +1628,25 @@ cam_corr = camera("CAM_Corridor", (0.42, 2.3, 1.02), (0.05, 10.0, 1.78), lens=30
 # =====================================================================
 os.makedirs(RAW, exist_ok=True)
 os.makedirs(os.path.join(OUT, "fbx"), exist_ok=True)
-blend = os.path.join(OUT, "corridor.blend" if CORRIDOR else "characters.blend")
-bpy.ops.wm.save_as_mainfile(filepath=blend)
-print("[saved]", blend)
+if not EYES:
+    blend = os.path.join(OUT, "corridor.blend" if CORRIDOR else "characters.blend")
+    bpy.ops.wm.save_as_mainfile(filepath=blend)
+    print("[saved]", blend)
 
-if not CORRIDOR:
+if EYES:
+    hc = PJ[1]["head_c"]
+    yaw = math.radians(16)
+    dd = V((-math.sin(yaw), -math.cos(yaw), 0.03))
+    SC.camera = camera("CAM_Eyes", hc + V((0, 0, -0.12)) + dd * 20, hc + V((0, 0, -0.12)), ortho=0.62)
+    allv = [o for l in eye_obs for o in l]
+    for (key, name, sub), obs in zip(EYE_VARIANTS, eye_obs):
+        for o in allv:
+            o.hide_render = o not in obs
+        SC.render.filepath = os.path.join(RAW, f"eyes_{key}.png")
+        if not NORENDER:
+            bpy.ops.render.render(write_still=True)
+            print("[render] eyes", key)
+elif not CORRIDOR:
     for cid, (ob, gl) in built.items():
         for o in bpy.context.view_layer.objects:
             o.select_set(o in (ob, gl))
@@ -1444,7 +1657,7 @@ if not CORRIDOR:
                                  use_triangles=True)
     print("[saved] fbx/SM_Char_*.fbx")
 
-if not NORENDER:
+if not NORENDER and not EYES:
     if CORRIDOR:
         SC.camera = cam_corr
         SC.render.filepath = os.path.join(RAW, "corridor.png")
