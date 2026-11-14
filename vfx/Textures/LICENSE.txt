@@ -1,0 +1,21 @@
+Текстуры огня в этой папке собраны скриптом vfx/tools/make_fire_textures.py из бесплатных ассетов
+с лицензией CC0 1.0 (общественное достояние):
+https://creativecommons.org/publicdomain/zero/1.0/
+
+1. Kenney — Particle Pack (CC0), https://kenney.nl/assets/particle-pack
+   Скачано с https://opengameart.org/content/particle-pack-80-sprites (kenney_particlePack.zip).
+   Спрайты переведены в белый цвет с альфой по яркости, уменьшены до 256 px и собраны в атласы:
+   - T_Flames_3x2.png  — flame_01 … flame_06
+   - T_Sparks_4x2.png  — spark_01 … spark_07, light_01
+   - T_Burst_3x2.png   — muzzle_01 … muzzle_05, fire_01
+   - T_Scorch_2x2.png  — scorch_01 … scorch_03, fire_02
+   - T_Rings_2x2.png   — circle_02, circle_03, circle_05, flare_01
+   - T_Trail.png       — Rotated/trace_04_rotated (обрезан по высоте)
+   Credit: Kenney (www.kenney.nl)
+
+2. Unity Technologies — Free VFX Image Sequences & Flipbooks (CC0),
+   https://unity.com/blog/engine-platform/free-vfx-image-sequences-flipbooks
+   Флипбуки переведены из TGA в PNG, кадры отодвинуты от краёв тайла, альфа пламени сделана плотной:
+   - T_Flame03_16x4.png       — Flame03-flipbooks.zip, Flame03_16x4.tga
+   - T_SmallFlame01_16x4.png  — SmallFlame01-flipbooks.zip, SmallFlame01_16x4.tga (уменьшен с 2048×1024 до 1024×512)
+   - T_WispySmoke01_8x8.png   — WispySmoke01-flipbooks.zip, WispySmoke01_8x8.tga

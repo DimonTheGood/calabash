@@ -145,6 +145,7 @@ namespace Calabash.Combat.EditorTools
             player.name = "Zhdan_Village";
             CombatTestSceneBuilder.AddCombat(player, ink, fire);
             CharacterAnimSetup.SetupHero(player);                 // риг, анимации, руки в кадре
+            Calabash.Vfx.EditorTools.ZhdanFireSetup.Setup(player);      // огонь: тело, кулаки, удары, слэм
             float yaw = alongX ? 90f : 0f;
             player.transform.SetPositionAndRotation(spawn, Quaternion.Euler(0f, yaw, 0f));
             var cam = player.GetComponentInChildren<Camera>();

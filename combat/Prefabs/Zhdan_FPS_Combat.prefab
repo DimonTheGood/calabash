@@ -686,6 +686,7 @@ GameObject:
   - component: {fileID: 4298913448322808342}
   - component: {fileID: 7616539145676590420}
   - component: {fileID: 3525917552085844859}
+  - component: {fileID: 3814012353276676020}
   m_Layer: 0
   m_Name: Zhdan_FPS_Combat
   m_TagString: Player
@@ -1145,6 +1146,72 @@ MonoBehaviour:
   runClipSpeed: 9
   crossFade: 0.12
   upperBlendSpeed: 12
+--- !u!114 &3814012353276676020
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4498926042162804582}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a75ec4cdaf701a39b90d12e87a4d3f0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Calabash.Vfx.ZhdanFireVfx
+  movement: {fileID: 4143619773559806353}
+  combat: {fileID: 4298913448322808342}
+  fuel: {fileID: 7563177380241146236}
+  cameraMode: {fileID: 3522126870229742253}
+  fpFistLeft: {fileID: 2193901302133762932}
+  fpFistRight: {fileID: 1676760710330027839}
+  fpFistCenter: 0.09
+  handLeft: {fileID: 2401687432152196899}
+  handRight: {fileID: 6085350636860018332}
+  bodyPoints:
+  - {fileID: 1352839026250620524}
+  - {fileID: 4596900002977633532}
+  - {fileID: 5026993344985789219}
+  - {fileID: 8177130318840865889}
+  - {fileID: 8647023438736225625}
+  - {fileID: 1982735694038974255}
+  - {fileID: 4352470668521676313}
+  - {fileID: 1399139735962815027}
+  - {fileID: 2700074337219886223}
+  - {fileID: 8874541318273359646}
+  bodyWeights:
+  - 3
+  - 1.5
+  - 1.5
+  - 1.5
+  - 1
+  - 1
+  - 1.2
+  - 1.2
+  - 1
+  - 0.8
+  head: {fileID: 8874541318273359646}
+  flameFlipbook: {fileID: 2100000, guid: f5cd96f1537e55fb5bebb82e782ce676, type: 2}
+  smallFlameFlipbook: {fileID: 2100000, guid: 4984fe6a6ae35d25e88dbc6122c75bb5, type: 2}
+  tongues: {fileID: 2100000, guid: 6a52ccb0f026fd0978ff96f7257c4f2d, type: 2}
+  sparks: {fileID: 2100000, guid: 5bb0086b61440aa93a6e2b99942a79f2, type: 2}
+  smoke: {fileID: 2100000, guid: 46a7f69e79701f39dba3123b7c6a8e68, type: 2}
+  burst: {fileID: 2100000, guid: 97c01614c59a8885bbdecbdd0cfc8e2d, type: 2}
+  trace: {fileID: 2100000, guid: f57d7194ee616f0abad7afab134d557d, type: 2}
+  rings: {fileID: 2100000, guid: c223ddc484bfcb58b895fdd0c12a619c, type: 2}
+  scorch: {fileID: 2100000, guid: baec7917bed846a429ac9b05925c240c, type: 2}
+  hot: {r: 1, g: 0.81960785, b: 0.4, a: 1}
+  ember: {r: 1, g: 0.47843137, b: 0.09411765, a: 1}
+  deep: {r: 0.7607843, g: 0.30588236, b: 0, a: 1}
+  soot: {r: 0.22745098, g: 0.20392157, b: 0.1882353, a: 1}
+  minHeat: 0.2
+  heatOverride: -1
+  bodyFlameRate: 90
+  bodyEmberRate: 45
+  fistFlameRate: 70
+  runSparksPerMeter: 3
+  fistSizeFirst: 2.8
+  fistSizeThird: 3.4
+  blastScale: 1
 --- !u!1 &4785813021631436742
 GameObject:
   m_ObjectHideFlags: 0
