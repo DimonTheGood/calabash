@@ -1,3 +1,5 @@
+using Calabash.Animation;
+using Calabash.Animation.EditorTools;
 using Calabash.Movement;
 using Calabash.Movement.EditorTools;
 using UnityEditor;
@@ -108,11 +110,16 @@ namespace Calabash.Combat.EditorTools
                 spawn = new Vector3(roadB.center.x, roadY, roadB.center.z);
             Debug.Log($"[Village] Объектов с коллизией: {colliders}, дорога {roadB.size}, старт {spawn}");
 
+            // жители с анимациями (animation/); без моделей — манекены, как раньше
+            CharacterAnimSetup.BeginBuild();
+            int npcs = CharacterAnimSetup.Available ? PlaceVillagers(spawn, along, side, roadB) : 0;
+            if (npcs > 0) Debug.Log($"[Village] Жителей: {npcs}");
+
             // манекены — только в свободных точках дороги, впереди и позади старта
             var arena = new GameObject("Dummies").transform;
             int placed = 0;
             var used = new System.Collections.Generic.List<Vector3>();
-            foreach (float dir in new[] { 1f, -1f })
+            foreach (float dir in npcs > 0 ? new float[0] : new[] { 1f, -1f })
             {
                 int here = 0;
                 for (float d = 7f; d < 40f && here < 5; d += 3f)
@@ -137,6 +144,7 @@ namespace Calabash.Combat.EditorTools
             GameObject player = MovementTestSceneBuilder.CreatePlayer();
             player.name = "Zhdan_Village";
             CombatTestSceneBuilder.AddCombat(player, ink, fire);
+            CharacterAnimSetup.SetupHero(player);                 // риг, анимации, руки в кадре
             float yaw = alongX ? 90f : 0f;
             player.transform.SetPositionAndRotation(spawn, Quaternion.Euler(0f, yaw, 0f));
             var cam = player.GetComponentInChildren<Camera>();
@@ -155,6 +163,69 @@ namespace Calabash.Combat.EditorTools
             EditorSceneManager.SaveScene(scene, scenePath);
             AssetDatabase.SaveAssets();
             return scenePath;
+        }
+
+        /// <summary>
+        /// Жители деревни: болтают, молятся, бродят, стоят на посту и ходят дозором.
+        /// Точки ищутся на дороге (свободные от домов); кто не поместился — не ставится.
+        /// </summary>
+        static int PlaceVillagers(Vector3 spawn, Vector3 along, Vector3 side, Bounds road)
+        {
+            var parent = new GameObject("Villagers").transform;
+            int count = 0;
+            var used = new System.Collections.Generic.List<Vector3>();
+            Vector3? Spot(float d, float off)
+            {
+                foreach (float dd in new[] { 0f, 1.2f, -1.2f, 2.4f, -2.4f })
+                    foreach (float oo in new[] { 0f, 0.8f, -0.8f, 1.6f, -1.6f })
+                    {
+                        Vector3 p = spawn + along * (d + dd) + side * (off + oo);
+                        if (!road.Contains(new Vector3(p.x, road.center.y, p.z)) || !IsFree(p)) continue;
+                        bool near = false;
+                        foreach (var u in used) if ((u - p).sqrMagnitude < 1.3f * 1.3f) near = true;
+                        if (near) continue;
+                        used.Add(p);
+                        return p;
+                    }
+                return null;
+            }
+            Vector3[] Route(params (float d, float off)[] pts)
+            {
+                var list = new System.Collections.Generic.List<Vector3>();
+                foreach (var (d, off) in pts)
+                {
+                    Vector3 p = spawn + along * d + side * off;
+                    if (road.Contains(new Vector3(p.x, road.center.y, p.z)) && IsFree(p)) list.Add(p);
+                }
+                return list.ToArray();
+            }
+            void Add(string cid, VillagerNpc.Role role, float d, float off, Vector3 facing, float hp, Vector3[] route = null, float speed = 0f)
+            {
+                Vector3? p = route != null && route.Length > 0 ? route[0] : Spot(d, off);
+                if (p == null) { Debug.Log($"[Village] {cid}: нет места у дороги ({d}, {off})"); return; }
+                var go = CharacterAnimSetup.CreateNpc(cid, parent, p.Value, facing, role, route, hp);
+                if (go == null) return;
+                if (speed > 0f) go.GetComponent<VillagerNpc>().walkSpeed = speed;
+                count++;
+            }
+
+            // у колодца: пекарь Гаврила разговаривает с крестьянином
+            Add("gavrila", VillagerNpc.Role.Talker, 7f, 2.2f, along, 80f);
+            Add("peasant", VillagerNpc.Role.Talker, 8.6f, 2.2f, -along, 60f);
+            // вдова Агафья молится, поп Никодим стоит рядом
+            Add("agafya", VillagerNpc.Role.Prayer, -8f, -2.2f, side, 50f);
+            Add("nikodim", VillagerNpc.Role.Talker, -8f, -0.6f, -side, 70f);
+            // слепой Ефим медленно бредёт по дороге
+            Add("efim", VillagerNpc.Role.Wanderer, 0f, 0f, along, 50f, Route((-4f, 1f), (6f, 1f), (14f, 0.6f), (4f, -0.6f)), 0.8f);
+            Add("peasant", VillagerNpc.Role.Wanderer, 0f, 0f, along, 60f, Route((12f, -1.2f), (22f, -1.4f), (30f, -0.8f), (18f, 1f)));
+            // стража: пост и дозор
+            Add("guard", VillagerNpc.Role.Guard, 20f, 2.6f, -along, 120f);
+            Add("guard", VillagerNpc.Role.Patrol, 0f, 0f, along, 120f, Route((16f, 0.4f), (32f, 0.4f)));
+            Add("bucketguard", VillagerNpc.Role.Patrol, 0f, 0f, -along, 100f, Route((-14f, 1f), (-30f, 1f)));
+            Add("archer", VillagerNpc.Role.Guard, -20f, -2.6f, along, 80f);
+            // палач Корней не бегает — идёт
+            Add("korney", VillagerNpc.Role.Patrol, 0f, 0f, along, 200f, Route((-6f, -1.6f), (-26f, -1.6f)), 0.9f);
+            return count;
         }
 
         static void AddSnow(Transform player, string root)

@@ -3,8 +3,9 @@ using UnityEngine;
 namespace Calabash.Movement
 {
     /// <summary>
-    /// Процедурные позы статичной модели Ждана (рига пока нет): наклон на бегу, покачивание,
-    /// откидывание назад в слайде, рывок вперёд в дэше, сжатие в слэме.
+    /// Процедурные позы модели Ждана: наклон на бегу, покачивание, откидывание назад в слайде,
+    /// рывок вперёд в дэше, сжатие в слэме. С ригом (animated = true) позы делают клипы,
+    /// а здесь остаются только наклон на бегу и крен при стрейфе.
     /// Вешается на объект «Body» (ребёнок героя); двигает дочерний «Pose», в котором лежит модель.
     /// </summary>
     [DefaultExecutionOrder(30)]
@@ -30,6 +31,9 @@ namespace Calabash.Movement
         public float bobHeight = 0.06f;
         [Tooltip("Плавность поз")]
         public float poseSpeed = 14f;
+        [Tooltip("У модели есть риг и Animator (ZhdanAnimator): позы слайда, дэша, слэма и шаги делают клипы, " +
+                 "здесь остаются только наклон на бегу и крен при стрейфе")]
+        public bool animated = false;
 
         float bobPhase;
         Vector3 euler;
@@ -53,7 +57,13 @@ namespace Calabash.Movement
             float roll = -strafeRoll * Mathf.Clamp(local.x / Mathf.Max(1f, movement.runSpeed), -1f, 1f);
             float targetBob = 0f;
 
-            if (movement.IsSliding) { pitch = slideLean; roll = 0f; }
+            if (animated)
+            {
+                if (movement.IsSliding || movement.IsSlamming || !movement.IsGrounded) { pitch = 0f; roll = 0f; }
+                else if (movement.IsDashing) pitch = dashLean * 0.3f;
+                else pitch *= 0.5f;
+            }
+            else if (movement.IsSliding) { pitch = slideLean; roll = 0f; }
             else if (movement.IsDashing) pitch = dashLean;
             else if (movement.IsSlamming) pitch = slamLean;
             else if (movement.IsGrounded && run01 > 0.1f)

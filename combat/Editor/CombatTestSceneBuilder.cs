@@ -88,6 +88,9 @@ namespace Calabash.Combat.EditorTools
             GameObject player = MovementTestSceneBuilder.CreatePlayer();
             player.name = "Zhdan_FPS_Combat";
             AddCombat(player, ink, fire);
+            // риг и анимации из animation/ (если модели есть в проекте): тело, руки в кадре
+            Calabash.Animation.EditorTools.CharacterAnimSetup.BeginBuild();
+            Calabash.Animation.EditorTools.CharacterAnimSetup.SetupHero(player);
             player.transform.SetPositionAndRotation(new Vector3(6f, 0.05f, -8f), Quaternion.Euler(0, 140f, 0));
             PrefabUtility.SaveAsPrefabAssetAndConnect(player, $"{root}/Prefabs/Zhdan_FPS_Combat.prefab", InteractionMode.AutomatedAction);
 

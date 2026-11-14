@@ -40,6 +40,8 @@ namespace Calabash.Movement
         public Renderer[] bodyRenderers = new Renderer[0];
         [Tooltip("Рендереры только для третьего лица (оранжевый контур героя)")]
         public Renderer[] thirdPersonOnly = new Renderer[0];
+        [Tooltip("Рендереры только для первого лица (руки в кадре). В третьем лице руки — у анимированного тела")]
+        public Renderer[] firstPersonOnly = new Renderer[0];
 
         [Header("Кулаки / вьюмодель")]
         [Tooltip("Корень вьюмодели (кулаки). Пусто — не трогаем")]
@@ -126,6 +128,9 @@ namespace Calabash.Movement
                 if (r != null) r.shadowCastingMode = showBody ? ShadowCastingMode.On : ShadowCastingMode.ShadowsOnly;
             foreach (var r in thirdPersonOnly)
                 if (r != null) r.enabled = showBody;
+            if (firstPersonOnly != null)
+                foreach (var r in firstPersonOnly)
+                    if (r != null) r.enabled = !showBody;
             if (viewModel != null)
             {
                 Transform parent = showBody ? viewModelThirdPersonParent : viewModelFirstPersonParent;
