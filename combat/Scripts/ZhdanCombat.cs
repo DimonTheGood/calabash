@@ -168,6 +168,11 @@ namespace Calabash.Combat
         public string CurrentName => strike != null && phase != AttackPhase.Idle ? strike.displayName : "";
         /// <summary>Пока > 0 — только что ударили оземь (для анимации).</summary>
         public float SlamFlash => slamFlashTimer;
+        /// <summary>Точка и направление последнего попадания (для эффектов: искры, огонь).</summary>
+        public Vector3 LastHitPoint { get; private set; }
+        public Vector3 LastHitDirection { get; private set; }
+        /// <summary>Радиус ударной волны слэма с высоты height, м.</summary>
+        public float SlamWaveRadius(float height) => Mathf.Min(slamWaveMaxRadius, slamWaveRadius + slamWaveRadiusPerMeter * height);
 
         void Awake() => Init();
 
@@ -403,7 +408,7 @@ namespace Calabash.Combat
             if (!slamShockwave) return;
             slamFlashTimer = 0.25f;
             onAttackStart.Invoke(AttackKind.SlamWave);
-            float radius = Mathf.Min(slamWaveMaxRadius, slamWaveRadius + slamWaveRadiusPerMeter * height);
+            float radius = SlamWaveRadius(height);
             float damage = Mathf.Min(slamWaveMaxDamage, slamWaveDamage + slamWaveDamagePerMeter * height);
             Vector3 center = transform.position + Vector3.up * 0.5f;
             if (cameraFx != null) cameraFx.AddShake(slamWaveShake);
@@ -475,6 +480,8 @@ namespace Calabash.Combat
             if (fuel != null) fuel.Add(r.damageDealt * fuelPerDamage);
             Hitstop(s.hitstop);
             if (cameraFx != null) cameraFx.AddShake(s.shake);
+            LastHitPoint = point;
+            LastHitDirection = dir;
             onHit.Invoke(current);
             if (r.killed)
             {
