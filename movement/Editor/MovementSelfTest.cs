@@ -64,6 +64,7 @@ namespace Calabash.Movement.EditorTools
                 TestCoyote();
                 TestJumpBuffer();
                 TestLowTunnel();
+                TestCameraMode();
             }
             catch (System.Exception e)
             {
@@ -346,6 +347,35 @@ namespace Calabash.Movement.EditorTools
             Press(m, Hold(None), jump: true);
             int f = StepUntil(m, Hold(None), () => m.Velocity.y > 5f, 9);
             Check("буфер прыжка", airborne && f >= 0, $"нажал в воздухе={airborne}, прыгнул через {f} кадров после касания");
+            Kill(m);
+        }
+
+        static void TestCameraMode()
+        {
+            var m = Spawn(new Vector3(-60, 0.1f, -40));
+            Step(m, Hold(None), 10);
+            var pivot = new GameObject("CameraPivot").transform;
+            pivot.SetParent(m.transform, false);
+            pivot.localPosition = new Vector3(0, 1.62f, 0);
+            var cam = new GameObject("Cam").transform;
+            cam.SetParent(pivot, false);
+            var mode = m.gameObject.AddComponent<ZhdanCameraMode>();
+            mode.cameraPivot = pivot;
+            mode.Apply(false, Dt);
+            Check("камера: по умолчанию первое лицо", !mode.thirdPerson && mode.CurrentOffset.sqrMagnitude < 0.0001f,
+                  $"смещение {mode.CurrentOffset}");
+            mode.Apply(true, Dt);
+            for (int i = 0; i < 60; i++) mode.Apply(false, Dt);
+            Check("камера: третье лицо — за спиной", mode.thirdPerson && Mathf.Abs(mode.CurrentOffset.z + mode.distance) < 0.05f,
+                  $"смещение {mode.CurrentOffset} (дистанция {mode.distance})");
+            Box("CamWall", new Vector3(-60, 2, -42), new Vector3(4, 4, 0.4f)); // стена в 2 м за спиной
+            Physics.SyncTransforms();
+            mode.Apply(false, Dt);
+            float d = mode.CurrentOffset.magnitude;
+            Check("камера: не проходит сквозь стену", d < 1.9f && d >= mode.minDistance - 0.01f, $"дистанция до головы {d:0.00} м");
+            mode.Apply(true, Dt);
+            for (int i = 0; i < 60; i++) mode.Apply(false, Dt);
+            Check("камера: обратно в первое лицо", !mode.thirdPerson && mode.CurrentOffset.sqrMagnitude < 0.0001f, $"смещение {mode.CurrentOffset}");
             Kill(m);
         }
 

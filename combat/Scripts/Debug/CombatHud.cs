@@ -16,6 +16,7 @@ namespace Calabash.Combat
         static readonly Color Gray = new Color32(0x6E, 0x6E, 0x6E, 0xFF);
 
         GUIStyle label, big;
+        Calabash.Style.MangaGloom gloom;
         string lastName = "";
         float nameTimer;
 
@@ -23,6 +24,7 @@ namespace Calabash.Combat
         {
             if (combat == null) combat = GetComponent<ZhdanCombat>();
             if (fuel == null) fuel = GetComponent<ZhdanFuel>();
+            gloom = GetComponentInChildren<Calabash.Style.MangaGloom>();
         }
 
         void Update()
@@ -71,10 +73,11 @@ namespace Calabash.Combat
             if (lastName != "") GUI.Label(new Rect(w - 320, 20, 300, 40), lastName, big);
             if (combat.Series > 1) GUI.Label(new Rect(w - 320, 60, 300, 40), $"серия ×{combat.Series}", big);
 
-            GUI.Label(new Rect(16, h - 110, 420, 90),
+            GUI.Label(new Rect(16, h - 130, 420, 110),
                 "ЛКМ — комбо (3 удара)   ПКМ держать — тяжёлый\n" +
                 "ЛКМ в дэше — таран   ЛКМ в слайде — апперкот\n" +
-                "слэм (Ctrl в воздухе) — ударная волна", label);
+                "слэм (Ctrl в воздухе) — ударная волна" +
+                (gloom != null ? $"\nG — мрак ({(gloom.IsOn ? "вкл" : "выкл")})" : ""), label);
         }
 
         static void Fill(Rect r, Color col)

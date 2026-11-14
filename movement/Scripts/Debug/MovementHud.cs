@@ -48,7 +48,7 @@ namespace Calabash.Movement
             Fill(new Rect(c.x - 8, c.y - 1, 16, 2), Ink);
 
             float x = 16, y = 16, w = 260;
-            Fill(new Rect(x - 8, y - 8, w + 16, showControls ? 300 : 150), new Color(Paper.r, Paper.g, Paper.b, 0.85f));
+            Fill(new Rect(x - 8, y - 8, w + 16, showControls ? 322 : 150), new Color(Paper.r, Paper.g, Paper.b, 0.85f));
             GUI.Label(new Rect(x, y, w, 22), $"скорость  {movement.HorizontalSpeed,5:0.0} м/с  (пик {peakSpeed:0.0})", label); y += 22;
             GUI.Label(new Rect(x, y, w, 22), $"верт.     {movement.Velocity.y,5:0.0} м/с", label); y += 22;
             GUI.Label(new Rect(x, y, w, 22), $"состояние {StateName(movement)}", label); y += 26;
@@ -71,11 +71,12 @@ namespace Calabash.Movement
 
             if (showControls)
             {
-                GUI.Label(new Rect(x, y, w, 140),
+                GUI.Label(new Rect(x, y, w, 160),
                     "WASD — бег    мышь — обзор\n" +
                     "Space — прыжок / от стены\n" +
                     "Shift (Mouse4) — дэш\n" +
                     "Ctrl / C — слайд, в воздухе — слэм\n" +
+                    "V — вид от 3-го лица\n" +
                     "R — респаун   F1 — HUD   Esc — курсор", label);
             }
         }

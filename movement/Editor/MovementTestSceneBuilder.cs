@@ -86,8 +86,14 @@ namespace Calabash.Movement.EditorTools
             matFire = MakeMaterial($"{root}/Materials/M_Fire.mat", Fire, null, Vector2.one);
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            SetupAtmosphere(Paper, 40f, 170f);
+            BuildPolygon();
+            return scene;
+        }
 
-            // свет и атмосфера: бумага, туман цвета бумаги
+        /// <summary>Солнце, ровный эмбиент, туман. Используется и сценой деревни.</summary>
+        public static void SetupAtmosphere(Color fogColor, float fogStart, float fogEnd)
+        {
             var sun = new GameObject("Sun").AddComponent<Light>();
             sun.type = LightType.Directional;
             sun.intensity = 1.1f;
@@ -98,12 +104,9 @@ namespace Calabash.Movement.EditorTools
             RenderSettings.skybox = null;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = Paper;
-            RenderSettings.fogStartDistance = 40f;
-            RenderSettings.fogEndDistance = 170f;
-
-            BuildPolygon();
-            return scene;
+            RenderSettings.fogColor = fogColor;
+            RenderSettings.fogStartDistance = fogStart;
+            RenderSettings.fogEndDistance = fogEnd;
         }
 
         // ───────────── полигон ─────────────
@@ -247,6 +250,9 @@ namespace Calabash.Movement.EditorTools
             var respawn = go.AddComponent<TestRespawn>();
             respawn.movement = move;
             respawn.look = look;
+
+            // вид от третьего лица, если в проекте есть модель Ждана
+            ThirdPersonSetup.TryAdd(go);
             return go;
         }
 
@@ -280,7 +286,7 @@ namespace Calabash.Movement.EditorTools
             return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
 
-        static Material MakeMaterial(string path, Color color, Texture tex, Vector2 tiling)
+        public static Material MakeMaterial(string path, Color color, Texture tex, Vector2 tiling)
         {
             var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (mat == null)
