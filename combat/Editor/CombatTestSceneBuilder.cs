@@ -123,6 +123,10 @@ namespace Calabash.Combat.EditorTools
                 view.movement = move;
                 view.leftFist = CreateFist(fistsRoot, "Fist_L", view.leftRest, inkMat, fireMat);
                 view.rightFist = CreateFist(fistsRoot, "Fist_R", view.rightRest, inkMat, fireMat);
+
+                // в третьем лице кулаки переезжают к груди тела
+                var mode = player.GetComponent<ZhdanCameraMode>();
+                if (mode != null) mode.viewModel = fistsRoot;
             }
             return combat;
         }

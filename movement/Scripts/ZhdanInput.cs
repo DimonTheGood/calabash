@@ -48,6 +48,8 @@ namespace Calabash.Movement
         public Key slide = Key.LeftCtrl;
         [Tooltip("Дублирующая клавиша слайда (Ctrl неудобен на некоторых раскладках)")]
         public Key slideAlt = Key.C;
+        [Tooltip("Переключить вид: от первого / от третьего лица")]
+        public Key cameraToggle = Key.V;
 
         [Header("Мышь")]
         [Tooltip("Дэш также на боковую кнопку мыши (Mouse 4)")]
@@ -57,6 +59,7 @@ namespace Calabash.Movement
         public GamepadButton jumpButton = GamepadButton.South;
         public GamepadButton dashButton = GamepadButton.RightShoulder;
         public GamepadButton slideButton = GamepadButton.East;
+        public GamepadButton cameraToggleButton = GamepadButton.RightStick;
         public GamepadButton attackButton = GamepadButton.RightTrigger;
         public GamepadButton heavyButton = GamepadButton.LeftTrigger;
         [Tooltip("Скорость поворота камеры правым стиком, град/с")]
@@ -71,6 +74,7 @@ namespace Calabash.Movement
         public KeyCode dash = KeyCode.LeftShift;
         public KeyCode slide = KeyCode.LeftControl;
         public KeyCode slideAlt = KeyCode.C;
+        public KeyCode cameraToggle = KeyCode.V;
         public KeyCode attackKey = KeyCode.Mouse0;
         public KeyCode heavyKey = KeyCode.Mouse1;
 #endif
@@ -171,6 +175,17 @@ namespace Calabash.Movement
 #endif
             if (invertY) d.y = -d.y;
             return d;
+        }
+
+        public bool CameraTogglePressed()
+        {
+#if ENABLE_INPUT_SYSTEM
+            bool k = Keyboard.current != null && Keyboard.current[cameraToggle].wasPressedThisFrame;
+            bool g = Gamepad.current != null && Gamepad.current[cameraToggleButton].wasPressedThisFrame;
+            return k || g;
+#else
+            return Input.GetKeyDown(cameraToggle);
+#endif
         }
 
         public bool UnlockCursorPressed()

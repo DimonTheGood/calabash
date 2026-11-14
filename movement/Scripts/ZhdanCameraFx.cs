@@ -44,6 +44,9 @@ namespace Calabash.Movement
         public float maxSlamShake = 0.35f;
         public float shakeDecay = 4f;
 
+        /// <summary>Базовое смещение камеры от шарнира (вид от третьего лица задаёт ZhdanCameraMode).</summary>
+        [System.NonSerialized] public Vector3 baseLocalOffset;
+
         Camera cam;
         float eyeY, roll, dip, shake;
         Vector3 punchEuler;
@@ -100,7 +103,7 @@ namespace Calabash.Movement
 
             roll = Mathf.Lerp(roll, movement.IsSliding ? slideRoll : 0f, 1f - Mathf.Exp(-rollLerpSpeed * dt));
             Vector3 shakeOffset = shake > 0.001f ? Random.insideUnitSphere * shake : Vector3.zero;
-            transform.localPosition = shakeOffset;
+            transform.localPosition = baseLocalOffset + shakeOffset;
             punchEuler = Vector3.Lerp(punchEuler, Vector3.zero, 1f - Mathf.Exp(-14f * dt));
             transform.localRotation = Quaternion.Euler(punchEuler.x, punchEuler.y, roll + punchEuler.z);
         }
