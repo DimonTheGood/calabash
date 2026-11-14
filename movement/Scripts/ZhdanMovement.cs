@@ -168,7 +168,10 @@ namespace Calabash.Movement
         float coyoteTimer, jumpBufferTimer, dashTimer, invulnTimer;
         float slamBounceTimer, slamBounceSpeed, slamStartY;
         Vector3 dashDir, slideDir;
-        float slideSpeed;
+        float slideSpeed, currentDashSpeed;
+
+        /// <summary>Множитель скорости бега от внешних систем (например, замах тяжёлого удара). Не сериализуется.</summary>
+        [System.NonSerialized] public float speedMultiplier = 1f;
 
         readonly Vector3[] sideHits = new Vector3[8];
         int sideHitCount;
@@ -188,6 +191,10 @@ namespace Calabash.Movement
         public float CurrentHeight => controller != null ? controller.height : standingHeight;
         /// <summary>Сколько секунд ещё действует окно отскока после слэма.</summary>
         public float SlamBounceTimeLeft => Mathf.Max(0f, slamBounceTimer);
+        /// <summary>Направление текущего дэша/рывка (горизонтальное).</summary>
+        public Vector3 DashDirection => dashDir;
+        /// <summary>Горизонтальное направление взгляда тела.</summary>
+        public Vector3 Forward => FlatForward;
 
         public MoveState State =>
             isDashing ? MoveState.Dashing :
@@ -230,13 +237,50 @@ namespace Calabash.Movement
             coyoteTimer = jumpBufferTimer = slamBounceTimer = invulnTimer = 0f;
         }
 
-        /// <summary>Внешний толчок (взрыв, удар врага, батут).</summary>
+        /// <summary>Внешний толчок (взрыв, удар врага, батут). Толчок вверх прерывает слайд, горизонтальная скорость сохраняется.</summary>
         public void AddImpulse(Vector3 deltaVelocity)
         {
+            Init();
             if (isDashing) EndDash();
             isSlamming = false;
+            if (isSliding && deltaVelocity.y > 0f) StopSlide();
             velocity += deltaVelocity;
             if (deltaVelocity.y > 0f) { grounded = false; coyoteTimer = 0f; jumpedThisFrame = true; }
+        }
+
+        /// <summary>Жёстко задать скорость (отдача от удара). Прерывает дэш и слэм.</summary>
+        public void SetVelocity(Vector3 newVelocity)
+        {
+            Init();
+            if (isDashing) { isDashing = false; justEndedDash = true; }
+            isSlamming = false;
+            if (isSliding && newVelocity.y > 0f) StopSlide();
+            velocity = newVelocity;
+            if (newVelocity.y > 0f) { grounded = false; coyoteTimer = 0f; jumpedThisFrame = true; }
+        }
+
+        /// <summary>
+        /// Рывок по механике дэша, но без стамины и неуязвимости: для спецприёмов (удар с дэшем).
+        /// Если уже идёт дэш — продлевает его в новом направлении.
+        /// </summary>
+        public void Lunge(Vector3 direction, float speed, float duration)
+        {
+            Init();
+            Vector3 d = Flat(direction);
+            if (d.sqrMagnitude < 0.0001f) d = FlatForward;
+            if (isSliding) StopSlide();
+            isSlamming = false;
+            isDashing = true;
+            dashDir = d.normalized;
+            currentDashSpeed = speed;
+            dashTimer = duration;
+        }
+
+        /// <summary>Вернуть заряды стамины (награда за удачный приём).</summary>
+        public void RefundStamina(float charges)
+        {
+            Init();
+            stamina = Mathf.Min(staminaCharges, stamina + charges);
         }
 
         // ───────────────────────────── симуляция ─────────────────────────────
@@ -281,8 +325,9 @@ namespace Calabash.Movement
         void UpdateGround(Vector3 wish, float dt)
         {
             Vector3 h = Flat(velocity);
-            Vector3 target = wish * runSpeed;
-            float rate = h.magnitude > runSpeed + 0.01f ? groundOverspeedDeceleration
+            float run = runSpeed * speedMultiplier;
+            Vector3 target = wish * run;
+            float rate = h.magnitude > run + 0.01f ? groundOverspeedDeceleration
                        : wish.sqrMagnitude > 0.0001f ? groundAcceleration : groundDeceleration;
             h = Vector3.MoveTowards(h, target, rate * dt);
             velocity = h + Vector3.down * groundStickSpeed;
@@ -295,7 +340,7 @@ namespace Calabash.Movement
             if (wish.sqrMagnitude > 0.0001f)
             {
                 // Контроль как в ULTRAKILL: вектор поворачивается к вводу, но набранная сверх бега скорость не срезается.
-                Vector3 target = wish * Mathf.Max(runSpeed, speed);
+                Vector3 target = wish * Mathf.Max(runSpeed * speedMultiplier, speed);
                 h = Vector3.MoveTowards(h, target, airAcceleration * dt);
             }
             else if (airNoInputDrag > 0f)
@@ -384,6 +429,7 @@ namespace Calabash.Movement
 
             stamina -= dashCost;
             dashDir = wish.sqrMagnitude > 0.01f ? wish.normalized : FlatForward;
+            currentDashSpeed = dashSpeed;
             isDashing = true;
             dashTimer = dashDuration;
             invulnTimer = dashInvulnerability;
@@ -393,7 +439,7 @@ namespace Calabash.Movement
         void UpdateDash(float dt)
         {
             dashTimer -= dt;
-            velocity = dashDir * dashSpeed + Vector3.down * (grounded ? groundStickSpeed : 0f);
+            velocity = dashDir * currentDashSpeed + Vector3.down * (grounded ? groundStickSpeed : 0f);
             if (dashTimer <= 0f) EndDash();
         }
 
@@ -402,7 +448,7 @@ namespace Calabash.Movement
             if (!isDashing) return;
             isDashing = false;
             justEndedDash = true;
-            velocity = dashDir * Mathf.Min(dashSpeed, dashExitSpeed) + Vector3.up * velocity.y;
+            velocity = dashDir * Mathf.Min(currentDashSpeed, dashExitSpeed) + Vector3.up * velocity.y;
         }
 
         // ── слайд ──

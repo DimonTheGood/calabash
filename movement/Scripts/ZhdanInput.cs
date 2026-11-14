@@ -19,6 +19,16 @@ namespace Calabash.Movement
         public bool slideHeld;
     }
 
+    /// <summary>Снимок боевого ввода за кадр (модуль Combat).</summary>
+    public struct CombatInput
+    {
+        /// <summary>Лёгкий удар (комбо, спецприёмы).</summary>
+        public bool attackPressed;
+        public bool attackHeld;
+        /// <summary>Тяжёлый удар: держать — замах, отпустить — удар.</summary>
+        public bool heavyHeld;
+    }
+
     /// <summary>
     /// Читает клавиатуру, мышь и геймпад. Все клавиши настраиваются в инспекторе.
     /// Работает и с новым Input System (по умолчанию в Unity 6), и со старым Input Manager.
@@ -47,6 +57,8 @@ namespace Calabash.Movement
         public GamepadButton jumpButton = GamepadButton.South;
         public GamepadButton dashButton = GamepadButton.RightShoulder;
         public GamepadButton slideButton = GamepadButton.East;
+        public GamepadButton attackButton = GamepadButton.RightTrigger;
+        public GamepadButton heavyButton = GamepadButton.LeftTrigger;
         [Tooltip("Скорость поворота камеры правым стиком, град/с")]
         public float gamepadLookSpeed = 220f;
 #else
@@ -59,6 +71,8 @@ namespace Calabash.Movement
         public KeyCode dash = KeyCode.LeftShift;
         public KeyCode slide = KeyCode.LeftControl;
         public KeyCode slideAlt = KeyCode.C;
+        public KeyCode attackKey = KeyCode.Mouse0;
+        public KeyCode heavyKey = KeyCode.Mouse1;
 #endif
 
         [Header("Обзор")]
@@ -113,6 +127,36 @@ namespace Calabash.Movement
             i.slideHeld = Input.GetKey(slide) || Input.GetKey(slideAlt);
 #endif
             return i;
+        }
+
+        public CombatInput ReadCombat()
+        {
+            var c = new CombatInput();
+#if ENABLE_INPUT_SYSTEM
+            // пока курсор не захвачен, ЛКМ только захватывает его и не бьёт
+            var mouse = Mouse.current;
+            if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
+            {
+                c.attackPressed |= mouse.leftButton.wasPressedThisFrame;
+                c.attackHeld |= mouse.leftButton.isPressed;
+                c.heavyHeld |= mouse.rightButton.isPressed;
+            }
+            var pad = Gamepad.current;
+            if (pad != null)
+            {
+                c.attackPressed |= pad[attackButton].wasPressedThisFrame;
+                c.attackHeld |= pad[attackButton].isPressed;
+                c.heavyHeld |= pad[heavyButton].isPressed;
+            }
+#else
+            if (Cursor.lockState == CursorLockMode.Locked)
+            {
+                c.attackPressed = Input.GetKeyDown(attackKey);
+                c.attackHeld = Input.GetKey(attackKey);
+                c.heavyHeld = Input.GetKey(heavyKey);
+            }
+#endif
+            return c;
         }
 
         /// <summary>Поворот камеры за кадр в градусах: x — рыскание, y — тангаж (вверх +).</summary>

@@ -51,6 +51,30 @@ namespace Calabash.Movement.EditorTools
         public static string Build()
         {
             string root = RootFolder();
+            var scene = CreateEnvironmentScene();
+
+            // герой
+            GameObject player = CreatePlayer();
+            player.transform.SetPositionAndRotation(new Vector3(0f, 0.05f, -20f), Quaternion.identity);
+            string prefabPath = $"{root}/Prefabs/Zhdan_FPS.prefab";
+            PrefabUtility.SaveAsPrefabAssetAndConnect(player, prefabPath, InteractionMode.AutomatedAction);
+
+            string scenePath = $"{root}/Scenes/MovementTest.unity";
+            EditorSceneManager.SaveScene(scene, scenePath);
+            AssetDatabase.SaveAssets();
+            return scenePath;
+        }
+
+        /// <summary>Материалы палитры полигона (после CreateEnvironmentScene). Нужны другим сборщикам (Combat).</summary>
+        public static Material BlockMaterial => matBlock;
+        public static Material WallMaterial => matWall;
+        public static Material InkMaterial => matInk;
+        public static Material FireMaterial => matFire;
+
+        /// <summary>Новая сцена со светом, туманом и полигоном, без героя. Используется и модулем Combat.</summary>
+        public static UnityEngine.SceneManagement.Scene CreateEnvironmentScene()
+        {
+            string root = RootFolder();
             foreach (string sub in new[] { "Scenes", "Prefabs", "Materials", "Textures" })
                 if (!AssetDatabase.IsValidFolder($"{root}/{sub}")) AssetDatabase.CreateFolder(root, sub);
 
@@ -79,17 +103,7 @@ namespace Calabash.Movement.EditorTools
             RenderSettings.fogEndDistance = 170f;
 
             BuildPolygon();
-
-            // герой
-            GameObject player = CreatePlayer();
-            player.transform.SetPositionAndRotation(new Vector3(0f, 0.05f, -20f), Quaternion.identity);
-            string prefabPath = $"{root}/Prefabs/Zhdan_FPS.prefab";
-            PrefabUtility.SaveAsPrefabAssetAndConnect(player, prefabPath, InteractionMode.AutomatedAction);
-
-            string scenePath = $"{root}/Scenes/MovementTest.unity";
-            EditorSceneManager.SaveScene(scene, scenePath);
-            AssetDatabase.SaveAssets();
-            return scenePath;
+            return scene;
         }
 
         // ───────────── полигон ─────────────
@@ -153,7 +167,7 @@ namespace Calabash.Movement.EditorTools
                 Block(level, $"Step_{i}", new Vector3(-12, 0.15f + i * 0.3f, -6 + i * 0.6f), new Vector3(4, 0.3f + i * 0.6f, 0.6f), matBlock);
         }
 
-        static GameObject Block(Transform parent, string name, Vector3 center, Vector3 size, Material mat, bool collider = true)
+        public static GameObject Block(Transform parent, string name, Vector3 center, Vector3 size, Material mat, bool collider = true)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
             go.name = name;
@@ -175,7 +189,7 @@ namespace Calabash.Movement.EditorTools
             go.transform.localRotation = rot;
         }
 
-        static void Label(Transform parent, string text, Vector3 pos)
+        public static void Label(Transform parent, string text, Vector3 pos)
         {
             var go = new GameObject("Label_" + text.Split(':')[0]);
             go.transform.SetParent(parent, false);
