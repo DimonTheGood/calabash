@@ -46,6 +46,13 @@ namespace Calabash.Movement
 
         Camera cam;
         float eyeY, roll, dip, shake;
+        Vector3 punchEuler;
+
+        /// <summary>Встряхнуть камеру (удар, взрыв). amount — амплитуда в метрах.</summary>
+        public void AddShake(float amount) => shake = Mathf.Max(shake, amount);
+
+        /// <summary>Толчок взгляда в градусах (x — кивок, y — поворот, z — крен); быстро возвращается.</summary>
+        public void Punch(Vector3 euler) => punchEuler += euler;
 
         void Awake()
         {
@@ -94,7 +101,8 @@ namespace Calabash.Movement
             roll = Mathf.Lerp(roll, movement.IsSliding ? slideRoll : 0f, 1f - Mathf.Exp(-rollLerpSpeed * dt));
             Vector3 shakeOffset = shake > 0.001f ? Random.insideUnitSphere * shake : Vector3.zero;
             transform.localPosition = shakeOffset;
-            transform.localRotation = Quaternion.Euler(0f, 0f, roll);
+            punchEuler = Vector3.Lerp(punchEuler, Vector3.zero, 1f - Mathf.Exp(-14f * dt));
+            transform.localRotation = Quaternion.Euler(punchEuler.x, punchEuler.y, roll + punchEuler.z);
         }
     }
 }

@@ -85,6 +85,9 @@ skin 0.06, slope 50, step 0.35) + `ZhdanInput` + `ZhdanMovement` + `FirstPersonL
 `onSlideStop`, `onSlamStart`, `onSlamLand(float)` и `onLand(float)`. Для HUD и ИИ
 состояние читается через свойства `State`, `Velocity`, `Stamina`, `WallJumpsLeft`,
 `IsInvulnerable`. Внешний толчок — `AddImpulse`, телепорт — `Teleport`.
+Для боёвки ([`combat/`](../combat/README.md)) есть `Lunge` (рывок без стамины),
+`SetVelocity` (отдача), `RefundStamina` и `speedMultiplier` (замедление при замахе).
+`ZhdanInput.ReadCombat()` читает ЛКМ/ПКМ и триггеры геймпада.
 
 ## Как тестировать
 
