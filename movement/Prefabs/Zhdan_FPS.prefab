@@ -1,0 +1,384 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1560255443854047956
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8327052082313754070}
+  - component: {fileID: 4384021734238170462}
+  - component: {fileID: 2509781131750083437}
+  - component: {fileID: 5820847702271277118}
+  m_Layer: 0
+  m_Name: Main Camera
+  m_TagString: MainCamera
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8327052082313754070
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1560255443854047956}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1987543506599653949}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!20 &4384021734238170462
+Camera:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1560255443854047956}
+  m_Enabled: 1
+  serializedVersion: 2
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.9490196, g: 0.9411765, b: 0.91764706, a: 1}
+  m_projectionMatrixMode: 1
+  m_GateFitMode: 2
+  m_FOVAxisMode: 0
+  m_Iso: 200
+  m_ShutterSpeed: 0.005
+  m_Aperture: 16
+  m_FocusDistance: 10
+  m_FocalLength: 50
+  m_BladeCount: 5
+  m_Curvature: {x: 2, y: 11}
+  m_BarrelClipping: 0.25
+  m_Anamorphism: 0
+  m_SensorSize: {x: 36, y: 24}
+  m_LensShift: {x: 0, y: 0}
+  m_NormalizedViewPortRect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 1
+    height: 1
+  near clip plane: 0.05
+  far clip plane: 400
+  field of view: 95
+  orthographic: 0
+  orthographic size: 5
+  m_Depth: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingPath: -1
+  m_TargetTexture: {fileID: 0}
+  m_TargetDisplay: 0
+  m_TargetEye: 3
+  m_HDR: 1
+  m_AllowMSAA: 1
+  m_AllowDynamicResolution: 0
+  m_ForceIntoRT: 0
+  m_OcclusionCulling: 1
+  m_StereoConvergence: 10
+  m_StereoSeparation: 0.022
+--- !u!81 &2509781131750083437
+AudioListener:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1560255443854047956}
+  m_Enabled: 1
+--- !u!114 &5820847702271277118
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1560255443854047956}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: abcde4f2daef37e919bb5f896ec7dd4e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Calabash.Movement.ZhdanCameraFx
+  movement: {fileID: 3374785282279208059}
+  eyePivot: {fileID: 1987543506599653949}
+  eyeBelowTop: 0.18
+  eyeLerpSpeed: 18
+  baseFov: 95
+  speedFovBonus: 12
+  speedForMaxFov: 40
+  dashFovKick: 8
+  fovLerpSpeed: 10
+  slideRoll: 4
+  rollLerpSpeed: 10
+  landDipPerSpeed: 0.006
+  maxLandDip: 0.3
+  slamShakePerMeter: 0.02
+  maxSlamShake: 0.35
+  shakeDecay: 4
+--- !u!1 &4353000296290678090
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1987543506599653949}
+  m_Layer: 0
+  m_Name: CameraPivot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1987543506599653949
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4353000296290678090}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1.6199999, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 8327052082313754070}
+  m_Father: {fileID: 7356004963587763704}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &5085075018697403501
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7356004963587763704}
+  - component: {fileID: 3204080496510334811}
+  - component: {fileID: 1882719110140685023}
+  - component: {fileID: 3374785282279208059}
+  - component: {fileID: 7733649403412184591}
+  - component: {fileID: 6969179884118303855}
+  - component: {fileID: 6377530708906388602}
+  m_Layer: 0
+  m_Name: Zhdan_FPS
+  m_TagString: Player
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7356004963587763704
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5085075018697403501}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.05, z: -20}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1987543506599653949}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!143 &3204080496510334811
+CharacterController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5085075018697403501}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Height: 1.8
+  m_Radius: 0.4
+  m_SlopeLimit: 50
+  m_StepOffset: 0.35
+  m_SkinWidth: 0.06
+  m_MinMoveDistance: 0
+  m_Center: {x: 0, y: 0.9, z: 0}
+--- !u!114 &1882719110140685023
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5085075018697403501}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc7cf2db550c8acb2afc6b98eb8a3868, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Calabash.Movement.ZhdanInput
+  forward: 37
+  back: 33
+  left: 15
+  right: 18
+  jump: 1
+  dash: 51
+  slide: 55
+  slideAlt: 17
+  dashOnMouseButton4: 1
+  jumpButton: 6
+  dashButton: 11
+  slideButton: 5
+  gamepadLookSpeed: 220
+  mouseSensitivity: 0.1
+  invertY: 0
+--- !u!114 &3374785282279208059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5085075018697403501}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3631554dacf10fb0bbf1f088457cab1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Calabash.Movement.ZhdanMovement
+  runSpeed: 12
+  groundAcceleration: 120
+  groundDeceleration: 90
+  groundOverspeedDeceleration: 45
+  airAcceleration: 70
+  airOverspeedDecay: 1.5
+  airNoInputDrag: 0
+  gravity: 40
+  maxFallSpeed: 70
+  jumpSpeed: 15
+  coyoteTime: 0.12
+  jumpBufferTime: 0.15
+  staminaCharges: 3
+  staminaRegenPerSecond: 0.9
+  dashCost: 1
+  dashSpeed: 45
+  dashDuration: 0.18
+  dashExitSpeed: 14
+  dashInvulnerability: 0.2
+  dashCancelsSlam: 1
+  allowDashJump: 1
+  dashJumpSpeed: 30
+  dashJumpExtraCost: 1
+  slideMinSpeed: 20
+  slideStartBoost: 4
+  slideMaxSpeed: 42
+  slideFriction: 0
+  slideSlopeFactor: 1.2
+  slideSteering: 70
+  slideStopSpeed: 5
+  slideHeight: 0.9
+  slideOnLandingIfHeld: 1
+  slideJumpSpeedMultiplier: 1
+  slamSpeed: 90
+  slamMinHeight: 0.8
+  slamBounceWindow: 0.25
+  slamBounceBaseSpeed: 20
+  slamBounceSpeedPerMeter: 0.4
+  slamBounceMaxSpeed: 36
+  maxWallJumps: 3
+  wallCheckDistance: 0.4
+  wallJumpUpSpeed: 14
+  wallJumpAwaySpeed: 13
+  wallJumpKeepMomentum: 0.6
+  wallSlide: 1
+  wallSlideMaxFallSpeed: 5
+  wallMaxNormalY: 0.35
+  standingHeight: 1.8
+  groundStickSpeed: 3
+  groundSnapDistance: 0.5
+  collisionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  maxStep: 0.05
+  input: {fileID: 1882719110140685023}
+  onJump:
+    m_PersistentCalls:
+      m_Calls: []
+  onWallJump:
+    m_PersistentCalls:
+      m_Calls: []
+  onDash:
+    m_PersistentCalls:
+      m_Calls: []
+  onSlideStart:
+    m_PersistentCalls:
+      m_Calls: []
+  onSlideStop:
+    m_PersistentCalls:
+      m_Calls: []
+  onSlamStart:
+    m_PersistentCalls:
+      m_Calls: []
+  onSlamLand:
+    m_PersistentCalls:
+      m_Calls: []
+  onLand:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &7733649403412184591
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5085075018697403501}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d0448ff553069104a6f33999a8c112f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Calabash.Movement.FirstPersonLook
+  cameraPivot: {fileID: 1987543506599653949}
+  input: {fileID: 1882719110140685023}
+  minPitch: -89
+  maxPitch: 89
+  lockCursorOnStart: 1
+--- !u!114 &6969179884118303855
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5085075018697403501}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d56116abbc6b65722a87eff1605e9788, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Calabash.Movement.MovementHud
+  movement: {fileID: 3374785282279208059}
+  visible: 1
+  showControls: 1
+--- !u!114 &6377530708906388602
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5085075018697403501}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa9d81a3cc0da68ab809bb44f8c1da30, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Calabash.Movement.TestRespawn
+  movement: {fileID: 3374785282279208059}
+  look: {fileID: 7733649403412184591}
+  spawnPoint: {fileID: 0}
+  killY: -30
