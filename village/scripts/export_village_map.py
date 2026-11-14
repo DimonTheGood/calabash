@@ -1,7 +1,7 @@
 """Экспорт собранной деревни из village.blend одним FBX с мировыми позициями — для Unity.
 
-Запуск из корня репо:
-    blender -b village/village.blend --factory-startup -P village/scripts/export_village_map.py
+Запуск из корня репо (большая деревня из build_village_big.py; для старой маленькой — village/village.blend):
+    blender -b village/village_big.blend --factory-startup -P village/scripts/export_village_map.py
 
 Результат: village/fbx/Village_Map.fbx (дома, снег на крышах, пропсы, природа, земля, дорога).
 Образцы домов (COL_Kit), камеры и свет не экспортируются. Оси под Unity: Y вверх, метры.

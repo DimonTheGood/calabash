@@ -32,11 +32,27 @@
 С модулем [`vfx/`](../vfx/README.md) Ждан горит: пламя на кулаках и теле, огненные следы ударов,
 вспышки попаданий, огненное кольцо от удара оземь.
 
-Деревня экспортирована из `village/village.blend` одним файлом `village/fbx/Village_Map.fbx`
-со всеми позициями: дома, снег на крышах, пропсы, деревья, земля, дорога. Перевыгрузить её можно так:
+Деревня большая, примерно в 5 раз больше первой версии:
+- 85 домов;
+- около 300 деревьев;
+- улицы: главная дорога, северная и южная, западная и восточная, переулки, дальний хутор на севере;
+- заборы вдоль улиц и пропсы у домов.
+
+Её собирает `village/scripts/build_village_big.py` поверх старого ядра из `village/village.blend`:
+главная дорога, колодец и кладбище остаются на месте. Скрипт пишет `village/village_big.blend`.
+Экспорт в Unity — одним файлом `village/fbx/Village_Map.fbx` со всеми позициями:
+- дома и снег на крышах;
+- пропсы и деревья;
+- земля и улицы.
+
+Пересобрать:
 
 ```bash
-blender -b village/village.blend --factory-startup -P village/scripts/export_village_map.py
+blender -b village/village.blend --factory-startup -P village/scripts/build_village_big.py
+```
+
+```bash
+blender -b village/village_big.blend --factory-startup -P village/scripts/export_village_map.py
 ```
 
 Подключение:
