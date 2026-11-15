@@ -10,7 +10,8 @@ namespace Calabash.Combat.EditorTools
 {
     /// <summary>
     /// Сцена VillageTest: зимняя деревня из village/ (Village_Map.fbx) + герой с мувментом, боем
-    /// и видом от третьего лица + манекены на дороге + снег + манга-фильтр «мрак» (style/).
+    /// и видом от третьего лица + жители + снег + манга-фильтр «мрак» (style/) + звук (audio/)
+    /// + враги волнами (enemies/): это и есть игра.
     /// Меню: Calabash → Village → Собрать сцену деревни.
     /// </summary>
     public static class VillageSceneBuilder
@@ -159,12 +160,27 @@ namespace Calabash.Combat.EditorTools
             var respawn = player.GetComponent<TestRespawn>();
             if (respawn != null) respawn.killY = -20f;
             AddSnow(player.transform, root);
-            Calabash.Audio.EditorTools.CalabashAudioSetup.Setup(player);   // звук ударов, шагов, огня, музыка (audio/)
+
+            // звук (audio/) и враги волнами (enemies/)
+            Calabash.Audio.EditorTools.CalabashAudioSetup.Setup(player);
+            var area = new Bounds(map.transform.position, Vector3.zero);
+            foreach (var r in map.GetComponentsInChildren<Renderer>()) area.Encapsulate(r.bounds);
+            Calabash.Enemies.EditorTools.EnemySetup.Setup(area, new[] { "Road", "Street" });
 
             string scenePath = $"{root}/Scenes/VillageTest.unity";
             EditorSceneManager.SaveScene(scene, scenePath);
             AssetDatabase.SaveAssets();
+            AddToBuild(scenePath);
             return scenePath;
+        }
+
+        /// <summary>Деревня — первая сцена сборки игры.</summary>
+        static void AddToBuild(string scenePath)
+        {
+            var list = new System.Collections.Generic.List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+            list.RemoveAll(x => x.path == scenePath);
+            list.Insert(0, new EditorBuildSettingsScene(scenePath, true));
+            EditorBuildSettings.scenes = list.ToArray();
         }
 
         /// <summary>
@@ -220,13 +236,7 @@ namespace Calabash.Combat.EditorTools
             // слепой Ефим медленно бредёт по дороге
             Add("efim", VillagerNpc.Role.Wanderer, 0f, 0f, along, 50f, Route((-4f, 1f), (6f, 1f), (14f, 0.6f), (4f, -0.6f)), 0.8f);
             Add("peasant", VillagerNpc.Role.Wanderer, 0f, 0f, along, 60f, Route((12f, -1.2f), (22f, -1.4f), (30f, -0.8f), (18f, 1f)));
-            // стража: пост и дозор
-            Add("guard", VillagerNpc.Role.Guard, 20f, 2.6f, -along, 120f);
-            Add("guard", VillagerNpc.Role.Patrol, 0f, 0f, along, 120f, Route((16f, 0.4f), (32f, 0.4f)));
-            Add("bucketguard", VillagerNpc.Role.Patrol, 0f, 0f, -along, 100f, Route((-14f, 1f), (-30f, 1f)));
-            Add("archer", VillagerNpc.Role.Guard, -20f, -2.6f, along, 80f);
-            // палач Корней не бегает — идёт
-            Add("korney", VillagerNpc.Role.Patrol, 0f, 0f, along, 200f, Route((-6f, -1.6f), (-26f, -1.6f)), 0.9f);
+            // стража, лучники и палач Корней — враги: их выводит WaveDirector волнами (enemies/)
             return count;
         }
 
