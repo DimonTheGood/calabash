@@ -18,6 +18,7 @@ namespace Calabash.Game
     {
         public const string VillageScene = "VillageTest";
         public const string AfterlifeScene = "Afterlife";
+        public const string ExecutionScene = "Execution";
 
         [System.Serializable]
         public class Slide
@@ -105,6 +106,8 @@ namespace Calabash.Game
         {
             GameProgress.Reset();
             Upgrades.ApplyAll(player);
+            // вступление — катсцена казни на движке; без неё — комикс из картинок
+            if (Application.CanStreamedLevelBeLoaded(ExecutionScene)) { Load(ExecutionScene); return; }
             mode = Mode.Intro;
             slide = 0;
             slideTime = 0f;

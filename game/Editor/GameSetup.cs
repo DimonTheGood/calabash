@@ -47,6 +47,8 @@ namespace Calabash.Game.EditorTools
             FixTextures();
             // отладочный HUD движения (скорость, клавиши) в игре скрыт; F1 показывает его снова
             foreach (var mh in Object.FindObjectsByType<MovementHud>(FindObjectsInactive.Include)) mh.visible = false;
+            // темп и сложность игры: Ждан тяжелее, огонь прогорает быстрее
+            foreach (var mv in Object.FindObjectsByType<ZhdanMovement>(FindObjectsInactive.Include)) GameBalance.Apply(mv.gameObject);
             var flow = new GameObject("Game").AddComponent<GameFlow>();
             foreach (var (img, text) in Intro)
                 flow.intro.Add(new GameFlow.Slide { image = Tex(img), text = text });
@@ -116,6 +118,7 @@ namespace Calabash.Game.EditorTools
             CharacterAnimSetup.SetupHero(player);
             Calabash.Vfx.EditorTools.ZhdanFireSetup.Setup(player);
             Calabash.Audio.EditorTools.CalabashAudioSetup.Setup(player, "limbo");
+            GameBalance.Apply(player);
             player.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
             var hud = player.GetComponent<Calabash.Combat.CombatHud>();
             if (hud != null) hud.visible = false;

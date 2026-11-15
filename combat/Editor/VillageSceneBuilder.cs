@@ -82,34 +82,7 @@ namespace Calabash.Combat.EditorTools
             SetupNight();
 
             // деревня
-            var mapAsset = AssetDatabase.LoadAssetAtPath<GameObject>(mapPath);
-            var map = (GameObject)PrefabUtility.InstantiatePrefab(mapAsset);
-            map.name = "Village";
-            int colliders = 0;
-            foreach (var mf in map.GetComponentsInChildren<MeshFilter>())
-            {
-                GameObjectUtility.SetStaticEditorFlags(mf.gameObject, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ContributeGI);
-                bool skip = false;
-                foreach (string part in NoColliderParts) if (mf.name.Contains(part)) { skip = true; break; }
-                if (skip || mf.sharedMesh == null) continue;
-                mf.gameObject.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
-                colliders++;
-            }
-
-            Transform road = FindDeep(map.transform, "SM_Road");
-            Bounds roadB = road != null ? road.GetComponent<Renderer>().bounds : new Bounds(Vector3.zero, Vector3.one);
-            Transform hut = FindDeep(map.transform, "SM_House_Hut");
-            if (hut != null) Debug.Log($"[Village] Хижина: размер {hut.GetComponent<Renderer>().bounds.size} (в Blender 6,1 × 7,1 × 5,7 м)");
-            bool alongX = roadB.size.x >= roadB.size.z;
-            Vector3 along = alongX ? Vector3.right : Vector3.forward;
-            Vector3 side = alongX ? Vector3.forward : Vector3.right;
-            Physics.SyncTransforms();
-
-            // старт — центр деревни (начало координат Blender, у колодца), если там дорога и свободно
-            float roadY = roadB.max.y + 0.05f;
-            Vector3 spawn = new Vector3(alongX ? 0f : roadB.center.x, roadY, alongX ? roadB.center.z : 0f);
-            if (!roadB.Contains(new Vector3(spawn.x, roadB.center.y, spawn.z)) || !IsFree(spawn))
-                spawn = new Vector3(roadB.center.x, roadY, roadB.center.z);
+            GameObject map = PlaceMap(mapPath, out Vector3 spawn, out Vector3 along, out Vector3 side, out Bounds roadB, out bool alongX, out int colliders);
             Debug.Log($"[Village] Объектов с коллизией: {colliders}, дорога {roadB.size}, старт {spawn}");
 
             // жители с анимациями (animation/); без моделей — манекены, как раньше
@@ -177,10 +150,48 @@ namespace Calabash.Combat.EditorTools
             AddToBuild(scenePath);
             // лимб, рай и ад — вторая сцена; собирается сейчас же, с теми же контроллерами анимаций
             Calabash.Game.EditorTools.GameSetup.BuildAfterlife();
+            // катсцена казни на костре — третья сцена (game/)
+            Calabash.Game.EditorTools.CutsceneSetup.BuildExecution();
             return scenePath;
         }
 
         /// <summary>Деревня — первая сцена сборки игры.</summary>
+        /// <summary>
+        /// Поставить карту деревни с коллизией и найти старт у колодца (центр деревни) и направление главной дороги.
+        /// Общая для деревни и катсцены казни (game/).
+        /// </summary>
+        public static GameObject PlaceMap(string mapPath, out Vector3 spawn, out Vector3 along, out Vector3 side,
+                                          out Bounds roadB, out bool alongX, out int colliders)
+        {
+            var mapAsset = AssetDatabase.LoadAssetAtPath<GameObject>(mapPath);
+            var map = (GameObject)PrefabUtility.InstantiatePrefab(mapAsset);
+            map.name = "Village";
+            colliders = 0;
+            foreach (var mf in map.GetComponentsInChildren<MeshFilter>())
+            {
+                GameObjectUtility.SetStaticEditorFlags(mf.gameObject, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ContributeGI);
+                bool skip = false;
+                foreach (string part in NoColliderParts) if (mf.name.Contains(part)) { skip = true; break; }
+                if (skip || mf.sharedMesh == null) continue;
+                mf.gameObject.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
+                colliders++;
+            }
+
+            Transform road = FindDeep(map.transform, "SM_Road");
+            roadB = road != null ? road.GetComponent<Renderer>().bounds : new Bounds(Vector3.zero, Vector3.one);
+            alongX = roadB.size.x >= roadB.size.z;
+            along = alongX ? Vector3.right : Vector3.forward;
+            side = alongX ? Vector3.forward : Vector3.right;
+            Physics.SyncTransforms();
+
+            // старт — центр деревни (начало координат Blender, у колодца), если там дорога и свободно
+            float roadY = roadB.max.y + 0.05f;
+            spawn = new Vector3(alongX ? 0f : roadB.center.x, roadY, alongX ? roadB.center.z : 0f);
+            if (!roadB.Contains(new Vector3(spawn.x, roadB.center.y, spawn.z)) || !IsFree(spawn))
+                spawn = new Vector3(roadB.center.x, roadY, roadB.center.z);
+            return map;
+        }
+
         /// <summary>Цвет ночной мглы: туман и небо.</summary>
         public static readonly Color NightFog = new Color(0.025f, 0.027f, 0.035f);
 
@@ -188,7 +199,7 @@ namespace Calabash.Combat.EditorTools
         /// Ночь: луны почти нет, мгла в 4–42 м, окружающий свет еле виден.
         /// Главный свет — огонь самого Ждана (ZhdanFireLight) и горящие враги.
         /// </summary>
-        static void SetupNight()
+        public static void SetupNight()
         {
             var moon = Object.FindAnyObjectByType<Light>();
             if (moon != null)
@@ -202,7 +213,7 @@ namespace Calabash.Combat.EditorTools
         }
 
         /// <summary>Манга-фильтр для ночи: тёмное небо с бледными полосами, сильнее виньетка.</summary>
-        static void NightGloom(Calabash.Style.MangaGloom g)
+        public static void NightGloom(Calabash.Style.MangaGloom g)
         {
             if (g == null) return;
             g.skyDarken = 0.35f;
@@ -279,7 +290,7 @@ namespace Calabash.Combat.EditorTools
             return count;
         }
 
-        static void AddSnow(Transform player, string root)
+        public static void AddSnow(Transform player, string root)
         {
             var go = new GameObject("Snow");
             go.transform.SetParent(player, false);
@@ -321,7 +332,7 @@ namespace Calabash.Combat.EditorTools
         }
 
         /// <summary>Свободно ли место под человека ростом 1,8 м (землю и дорогу не считаем).</summary>
-        static bool IsFree(Vector3 feet)
+        public static bool IsFree(Vector3 feet)
         {
             return !Physics.CheckCapsule(feet + Vector3.up * 0.7f, feet + Vector3.up * 1.6f, 0.6f, ~0, QueryTriggerInteraction.Ignore);
         }
