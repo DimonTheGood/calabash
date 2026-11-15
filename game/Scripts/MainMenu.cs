@@ -129,10 +129,10 @@ namespace Calabash.Game
             float x = 110 * s, a = Mathf.Clamp01((titleIn - 0.6f) * 0.8f);
             var old = GUI.color;
             GUI.color = new Color(1, 1, 1, a);
-            var ts = Ui.Title(150, Ui.Paper); ts.alignment = TextAnchor.MiddleLeft;
+            var ts = new GUIStyle(Ui.Title(150, Ui.Paper)); ts.alignment = TextAnchor.MiddleLeft;
             GUI.Label(new Rect(x, h * 0.12f, w * 0.5f, 170 * s), "ЖДАН", ts);
             Ui.Fill(new Rect(x + 6 * s, h * 0.12f + 168 * s, 210 * s, 7 * s), Ui.Fire);
-            var sub = Ui.Title(28, Ui.Fire); sub.alignment = TextAnchor.MiddleLeft;
+            var sub = new GUIStyle(Ui.Title(28, Ui.Fire)); sub.alignment = TextAnchor.MiddleLeft;
             GUI.Label(new Rect(x + 4 * s, h * 0.12f + 182 * s, w * 0.5f, 44 * s), "его хотели сжечь", sub);
             GUI.color = old;
 

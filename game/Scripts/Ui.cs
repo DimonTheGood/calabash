@@ -44,6 +44,7 @@ namespace Calabash.Game
             Init();
             title.fontSize = Mathf.RoundToInt(size * S);
             title.normal.textColor = c;
+            title.alignment = TextAnchor.MiddleCenter;     // стиль общий: кто-то мог его поменять
             return title;
         }
 

@@ -127,12 +127,22 @@ namespace Calabash.Game
             Say("Ждан горел долго.\nТолпа молчала.");
             yield return Shot(7f, s + F * 4.5f + up * 2.2f, s + F * 3.2f + up * 2.4f, s + up * 2.2f, s + up * 2.4f);
 
+            // 8б. почему огонь остался в нём
+            Say("Он был голоден. Огонь тоже.\nИ они узнали друг друга.");
+            yield return Close(zhdan, 6f, 2.4f, 1.9f, -0.6f, lookUp: 0.3f);
+            Say("Огонь съел верёвки, хворост и столб.\nА Ждана доесть не смог: голод в нём был сильнее огня.");
+            yield return Shot(6.5f, s + F * 3f + r * 1.5f + up * 2f, s + F * 6.5f + r * 2.5f + up * 7.5f, s + up * 2.2f, s + up * 1.4f);
+
             // 9. белая вспышка, текст
             Say("");
             fadeColor = Color.white;
             yield return Fade(1f, 1.8f);
             Big("Ждан сгорел.\nНо огонь не ушёл из него.");
             yield return new WaitForSecondsRealtime(4f);
+            Big("Теперь они одно: пока горит огонь, жив и Ждан.\nВода и удары гасят его. Чужое тепло кормит.");
+            yield return new WaitForSecondsRealtime(5.5f);
+            Big("Погаснет огонь — Ждан уйдёт в пустоту.\nНо огонь нельзя убить, только загасить:\nв золе всегда остаётся искра.");
+            yield return new WaitForSecondsRealtime(6f);
             fadeColor = Color.black;
             Big("Теперь горит деревня.");
             yield return new WaitForSecondsRealtime(3.2f);
