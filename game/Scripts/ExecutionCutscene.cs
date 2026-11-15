@@ -36,6 +36,7 @@ namespace Calabash.Game
         float fade;            // 0 — видно, 1 — залито fadeColor
         Color fadeColor = Color.black;
         string subtitle = "", bigText = "";
+        float pulled = -1f;
         float subTime, bigTime;
         bool done;
 
@@ -195,8 +196,9 @@ namespace Calabash.Game
             {
                 float k = t / dur;
                 target.position = Vector3.Lerp(from, to, k);
-                Vector3 p = target.position - dir * 3.2f + side * 0.6f + Vector3.up * 2.3f;
-                Place(p, Vector3.Lerp(target.position + Vector3.up * 1.5f, S + Vector3.up * 2f, k * 0.6f));
+                // сбоку и чуть впереди: видно и палача с факелом, и костёр, к которому он идёт
+                Vector3 p = target.position + dir * 1.2f - side * 3.6f + Vector3.up * 1.9f;
+                Place(p, Vector3.Lerp(target.position + Vector3.up * 1.4f, S + Vector3.up * 1.8f, k * 0.5f));
                 yield return null;
             }
             target.position = to;
@@ -205,6 +207,16 @@ namespace Calabash.Game
         void Place(Vector3 pos, Vector3 look)
         {
             if (cam == null) return;
+            // стены и крыши не должны заслонять кадр: камера встаёт перед препятствием
+            Vector3 d = pos - look;
+            float len = d.magnitude;
+            if (len > 0.5f && Physics.SphereCast(look, 0.3f, d / len, out var hit, len - 0.3f, ~0, QueryTriggerInteraction.Ignore))
+            {
+                float want = Mathf.Max(1.2f, hit.distance - 0.15f);
+                pulled = Mathf.Lerp(pulled < 0f ? want : pulled, want, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 8f));
+                pos = look + d / len * Mathf.Min(pulled, len);
+            }
+            else pulled = -1f;
             cam.transform.position = pos;
             cam.transform.rotation = Quaternion.LookRotation(look - pos);
         }

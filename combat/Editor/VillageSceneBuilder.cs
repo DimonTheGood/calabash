@@ -319,18 +319,63 @@ namespace Calabash.Combat.EditorTools
             vel.y = new ParticleSystem.MinMaxCurve(-2.4f, -1.4f);
             vel.z = new ParticleSystem.MinMaxCurve(-0.5f, 0.5f);
 
-            string matPath = $"{root}/Materials/Village/M_SnowFlake.mat";
-            var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
-            if (mat == null)
-            {
-                Shader sh = Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Sprites/Default");
-                mat = new Material(sh) { color = Color.white };
-                AssetDatabase.CreateAsset(mat, matPath);
-            }
+            var mat = SnowMaterial(root);
             var r = go.GetComponent<ParticleSystemRenderer>();
             r.sharedMaterial = mat;
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             r.receiveShadows = false;
+            r.maxParticleSize = 0.012f;          // у самой камеры снежинка не раздувается в пятно
+        }
+
+        /// <summary>Круглая мягкая снежинка (без текстуры частица — белый квадрат).</summary>
+        static Material SnowMaterial(string root)
+        {
+            string texPath = $"{root}/Materials/Village/T_SnowFlake.png";
+            if (AssetDatabase.LoadAssetAtPath<Texture2D>(texPath) == null)
+            {
+                const int N = 32;
+                var t = new Texture2D(N, N, TextureFormat.RGBA32, false);
+                for (int y = 0; y < N; y++)
+                    for (int x = 0; x < N; x++)
+                    {
+                        float dx = (x - (N - 1) * 0.5f) / (N * 0.5f), dy = (y - (N - 1) * 0.5f) / (N * 0.5f);
+                        float d = Mathf.Sqrt(dx * dx + dy * dy);
+                        float a = Mathf.Clamp01((1f - d) * 2.2f);
+                        t.SetPixel(x, y, new Color(1f, 1f, 1f, a * a * (3f - 2f * a)));
+                    }
+                System.IO.File.WriteAllBytes(texPath, t.EncodeToPNG());
+                Object.DestroyImmediate(t);
+                AssetDatabase.ImportAsset(texPath);
+                var imp = (TextureImporter)AssetImporter.GetAtPath(texPath);
+                imp.alphaIsTransparency = true;
+                imp.mipmapEnabled = true;
+                imp.wrapMode = TextureWrapMode.Clamp;
+                imp.SaveAndReimport();
+            }
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
+
+            string matPath = $"{root}/Materials/Village/M_SnowFlake.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+            Shader sh = Shader.Find("Universal Render Pipeline/Particles/Unlit") ?? Shader.Find("Sprites/Default");
+            if (mat == null)
+            {
+                mat = new Material(sh);
+                AssetDatabase.CreateAsset(mat, matPath);
+            }
+            mat.shader = sh;
+            mat.color = new Color(1f, 1f, 1f, 0.9f);
+            if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex);
+            mat.mainTexture = tex;
+            // прозрачная, альфа-смешение
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 0f);
+            mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_ZWrite", 0f);
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            EditorUtility.SetDirty(mat);
+            return mat;
         }
 
         /// <summary>Свободно ли место под человека ростом 1,8 м (землю и дорогу не считаем).</summary>
