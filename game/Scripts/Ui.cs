@@ -16,6 +16,7 @@ namespace Calabash.Game
         public static readonly Color Blood = new Color32(0xA3, 0x12, 0x1C, 0xFF);
 
         static GUIStyle text, title, huge, button, small;
+        static string hovered;
 
         /// <summary>Масштаб интерфейса от высоты экрана (1080 → 1).</summary>
         public static float S => Mathf.Clamp(Screen.height / 1080f, 0.6f, 2f);
@@ -85,7 +86,16 @@ namespace Calabash.Game
             button.fontSize = Mathf.RoundToInt(24 * S);
             button.normal.textColor = fg;
             GUI.Label(r, label, button);
-            return enabled && GUI.Button(r, GUIContent.none, GUIStyle.none);
+            // звук: шорох при наведении, глухой удар при нажатии
+            if (hover && Event.current.type == EventType.Repaint && hovered != label)
+            {
+                hovered = label;
+                Calabash.Audio.CalabashSfx.Play2D("cloth", 0.35f, 1.5f);
+            }
+            else if (!hover && hovered == label && Event.current.type == EventType.Repaint) hovered = null;
+            bool click = enabled && GUI.Button(r, GUIContent.none, GUIStyle.none);
+            if (click) Calabash.Audio.CalabashSfx.Play2D("punch_light", 0.5f, 0.75f);
+            return click;
         }
 
         /// <summary>Ползунок с подписью; возвращает новое значение.</summary>

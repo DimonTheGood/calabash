@@ -68,6 +68,9 @@ namespace Calabash.Enemies
         public float SurvivedTime { get; private set; }
         public string Banner { get; private set; } = "";
         public float BannerTimer { get; private set; }
+        /// <summary>Сколько секунд надпись уже на экране (для въезда).</summary>
+        public float BannerAge => bannerShown - BannerTimer;
+        float bannerShown;
 
         static int slots, slotsTaken;
         public static bool MeleeSlotsFull => slotsTaken >= slots;
@@ -229,7 +232,7 @@ namespace Calabash.Enemies
             if (e.kind == EnemyKind.Executioner && WaveIndex == waves.Count - 1 && CurrentPhase == Phase.Fighting) Win();
         }
 
-        void Show(string text, float seconds) { Banner = text; BannerTimer = seconds; }
+        void Show(string text, float seconds) { Banner = text; BannerTimer = bannerShown = seconds; }
 
         bool Spawn(EnemyKind kind)
         {

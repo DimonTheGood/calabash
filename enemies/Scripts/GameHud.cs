@@ -99,13 +99,25 @@ namespace Calabash.Enemies
                 GUI.Label(new Rect(r.x, r.y + 6 * k, r.width, 40 * k), t, ts);
             }
 
-            if (director.BannerTimer > 0f && director.Banner != "")
+            // надпись волны: тушевая полоса въезжает и тает; на паузе и выборе улучшения не видна
+            if (director.BannerTimer > 0f && director.Banner != "" && Time.timeScale > 0.01f)
             {
+                float k = Mathf.Clamp(Screen.height / 1080f, 0.6f, 2f);
                 float a = Mathf.Clamp01(director.BannerTimer * 2f);
-                var r = new Rect(0, h * 0.22f, w, 120);
-                Fill(new Rect(0, r.y + 10, w, 100), new Color(Paper.r, Paper.g, Paper.b, 0.75f * a));
-                var s = new GUIStyle(big) { normal = { textColor = new Color(Ink.r, Ink.g, Ink.b, a) } };
-                GUI.Label(r, director.Banner, s);
+                float slide = 1f - Mathf.Clamp01(director.BannerAge * 4f);
+                var r = new Rect(w * 0.5f - 380 * k - slide * 120 * k, h * 0.24f, 760 * k, 120 * k);
+                Fill(r, new Color(Ink.r, Ink.g, Ink.b, 0.85f * a));
+                Fill(new Rect(r.x, r.y, r.width, 5 * k), new Color(Fire.r, Fire.g, Fire.b, a));
+                Fill(new Rect(r.x, r.yMax - 5 * k, r.width, 5 * k), new Color(Fire.r, Fire.g, Fire.b, a));
+                var lines = director.Banner.Split('\n');
+                var s1 = new GUIStyle(big) { fontSize = Mathf.RoundToInt((lines.Length > 1 ? 22 : 40) * k), normal = { textColor = new Color(Fire.r, Fire.g, Fire.b, a) } };
+                var s2 = new GUIStyle(big) { fontSize = Mathf.RoundToInt(44 * k), normal = { textColor = new Color(Paper.r, Paper.g, Paper.b, a) } };
+                if (lines.Length > 1)
+                {
+                    GUI.Label(new Rect(r.x, r.y + 10 * k, r.width, 34 * k), lines[0].ToUpperInvariant(), s1);
+                    GUI.Label(new Rect(r.x, r.y + 42 * k, r.width, 66 * k), lines[1], s2);
+                }
+                else GUI.Label(r, director.Banner, s2);
             }
 
             if (dodgeTimer > 0f)

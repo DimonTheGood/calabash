@@ -180,8 +180,7 @@ namespace Calabash.Game.EditorTools
             Vector3 bp = new Vector3(3.2f, 0f, 5f);
             CutsceneSetup.Prim(PrimitiveType.Cylinder, heaven.transform, "Pedestal", bp + Vector3.up * 0.5f, new Vector3(0.7f, 0.5f, 0.7f),
                                CutsceneSetup.Mat($"{root}/Materials/M_Pedestal.mat", new Color(0.93f, 0.92f, 0.9f)));
-            Transform bread = CutsceneSetup.Prim(PrimitiveType.Sphere, heaven.transform, "Bread", bp + Vector3.up * 1.16f, new Vector3(0.48f, 0.32f, 0.48f),
-                               CutsceneSetup.Mat($"{root}/Materials/M_Bread.mat", new Color32(0x8A, 0x5A, 0x2E, 0xFF))).transform;
+            Transform bread = Karavai(heaven.transform, bp + Vector3.up * 1.0f, root);
             var motes = CutsceneSetup.NewPs(heaven.transform, "Motes", new Vector3(0f, 0.2f, 6f));
             {
                 var main = motes.main;
@@ -270,6 +269,29 @@ namespace Calabash.Game.EditorTools
         }
 
         /// <summary>Поставить сцену в Build Settings на место index.</summary>
+        static readonly (string, Color32)[] BreadPalette =
+        {
+            ("M_Crust", new Color32(0x6E, 0x3A, 0x16, 0xFF)), ("M_Glaze", new Color32(0x9C, 0x5C, 0x24, 0xFF)),
+            ("M_Dough", new Color32(0xD8, 0xB0, 0x78, 0xFF)), ("M_Salt", new Color32(0xF2, 0xF0, 0xEA, 0xFF)),
+        };
+
+        /// <summary>Каравай с косой и солонкой (Models/SM_Karavai.fbx, см. tools/karavai.py); без модели — шар.</summary>
+        static Transform Karavai(Transform parent, Vector3 pos, string root)
+        {
+            string path = ThirdPersonSetup.FindModelPath("SM_Karavai");
+            if (path == null)
+                return CutsceneSetup.Prim(PrimitiveType.Sphere, parent, "Bread", pos + Vector3.up * 0.16f, new Vector3(0.48f, 0.32f, 0.48f),
+                                          CutsceneSetup.Mat($"{root}/Materials/M_Bread.mat", new Color32(0x8A, 0x5A, 0x2E, 0xFF))).transform;
+            ThirdPersonSetup.RemapMaterials(path, BreadPalette, $"{root}/Materials/Bread");
+            var go = (GameObject)PrefabUtility.InstantiatePrefab(AssetDatabase.LoadAssetAtPath<GameObject>(path));
+            go.name = "Bread";
+            go.transform.SetParent(parent, false);
+            go.transform.position = pos;
+            go.transform.localScale = Vector3.one * 1.3f;
+            foreach (var r in go.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            return go.transform;
+        }
+
         public static void AddToBuild(string scenePath, int index)
         {
             var list = new System.Collections.Generic.List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
