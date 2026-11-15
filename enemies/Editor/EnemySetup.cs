@@ -52,6 +52,10 @@ namespace Calabash.Enemies.EditorTools
             var telegraph = Mat($"{mats}/M_Telegraph.mat", new Color32(0xA3, 0x12, 0x1C, 0xFF));
             var arrow = Mat($"{mats}/M_Arrow.mat", new Color32(0x0B, 0x0B, 0x0B, 0xFF));
             var water = Mat($"{mats}/M_Water.mat", new Color32(0xC9, 0xD8, 0xE4, 0xFF));
+            // пламя поджога — материал флипбука огня из vfx/ (создаёт ZhdanFireSetup), без него враги горят без пламени
+            Material burn = null;
+            foreach (string guid in AssetDatabase.FindAssets("M_FX_SmallFlame t:Material"))
+                burn = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
 
             var root = new GameObject("Enemies");
             var templatesRoot = new GameObject("Templates").transform;
@@ -70,6 +74,7 @@ namespace Calabash.Enemies.EditorTools
                 e.telegraphMaterial = telegraph;
                 e.arrowMaterial = arrow;
                 e.waterMaterial = water;
+                e.burnMaterial = burn;
                 Configure(e);
                 go.SetActive(false);
                 templates.Add(e);

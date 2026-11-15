@@ -16,11 +16,19 @@ namespace Calabash.Enemies
         public static ZhdanFuel Fuel { get; private set; }
         public static ZhdanCameraFx CameraFx { get; private set; }
         public static Transform Transform { get; private set; }
+        /// <summary>Огонь Ждана (vfx/) — для огненных вспышек от поджога и взрывов. Может быть null.</summary>
+        public static Calabash.Vfx.ZhdanFireVfx Fx { get; private set; }
 
         /// <summary>Сколько секунд после попадания по Ждану не бьют.</summary>
         public static float graceTime = 0.45f;
-        /// <summary>Множитель урона по Ждану (сложность).</summary>
+        /// <summary>Множитель урона по Ждану (сложность, улучшения).</summary>
         public static float damageMultiplier = 1f;
+        /// <summary>Любой удар поджигает врага (улучшение «Поджигатель»).</summary>
+        public static bool igniteAll;
+        /// <summary>Убитый враг взрывается огнём: урон врагам в радиусе 3 м (улучшение «Вспышка гнева»). 0 — нет.</summary>
+        public static float killBlastDamage;
+        /// <summary>Топливо за врага, сгоревшего от поджога.</summary>
+        public static float fuelPerBurnKill = 10f;
 
         /// <summary>Попадание: урон, вода ли это, откуда.</summary>
         public static event System.Action<float, bool, Vector3> Hurt;
@@ -37,13 +45,15 @@ namespace Calabash.Enemies
             Transform = Movement.transform;
             Fuel = Movement.GetComponent<ZhdanFuel>();
             CameraFx = Movement.GetComponentInChildren<ZhdanCameraFx>();
+            Fx = Movement.GetComponent<Calabash.Vfx.ZhdanFireVfx>();
             graceUntil = 0f;
             return true;
         }
 
         public static void Reset()
         {
-            Movement = null; Fuel = null; CameraFx = null; Transform = null;
+            Movement = null; Fuel = null; CameraFx = null; Transform = null; Fx = null;
+            damageMultiplier = 1f; igniteAll = false; killBlastDamage = 0f;
             Hurt = null; Dodged = null;
             graceUntil = 0f;
         }

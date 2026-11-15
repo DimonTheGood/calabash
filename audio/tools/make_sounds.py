@@ -9,6 +9,10 @@
   water-splash-slime-sfx/                      (water-splash-slime-sfx.zip)
   RPGsounds_Kenney/                            (RPGsounds_Kenney.zip)
   fire.wav  fire-1_0.ogg  death_pain_grunts.wav  explosion_dull.flac  battleThemeA.mp3
+  boss_battle_#2_metal_loop.wav (boss_battle_#2_metal_pack.zip)  cold_silence.ogg  Heavenly_Loop_0.ogg
+  hells_godedit_1.ogg  dark_ambient_drone_loop.flac
+
+    python3 audio/tools/make_sounds.py <папка> --only=music   — пересобрать только музыку
 
 Что делает: моно 44,1 кГц, обрезает тишину по краям, гасит щелчки на краях, выравнивает громкость,
 режет запись стонов на отдельные звуки, делает из треска костра бесшовную петлю.
@@ -23,7 +27,14 @@ import sys
 import numpy as np
 import soundfile as sf
 
-SRC = sys.argv[1] if len(sys.argv) > 1 else "."
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+SRC = ARGS[0] if ARGS else "."
+# --only=music — пересобрать только банки с этими префиксами (остальные файлы не трогать)
+ONLY = next((a.split("=", 1)[1].split(",") for a in sys.argv[1:] if a.startswith("--only=")), None)
+
+
+def want(name):
+    return ONLY is None or any(name.startswith(o) for o in ONLY)
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Sounds")
 SR = 44100
 
@@ -77,6 +88,8 @@ def save(m, bank, i):
 
 
 def bank(name, files, peak=0.9, rms=None, max_len=None, thr=0.02, gain=1.0):
+    if not want(name):
+        return
     total = 0
     for i, f in enumerate(files, 1):
         m = fades(trim(load(f), thr=thr, max_len=max_len))
@@ -120,7 +133,8 @@ def loop(m, seconds, xfade=1.0):
 
 os.makedirs(OUT, exist_ok=True)
 for f in glob.glob(os.path.join(OUT, "*.ogg")):
-    os.remove(f)
+    if want(os.path.basename(f)):
+        os.remove(f)
 
 HITS = P("independent_nu_ljudbank-hits_and_punches", "hits", "hit{:02d}.mp3.flac")
 bank("punch_light", [HITS.format(i) for i in (1, 3, 7, 9, 10, 12, 13, 17)], rms=0.12, max_len=0.5)
@@ -144,7 +158,7 @@ bank("bow_release", [K("metalLatch"), K("drawKnife2")], rms=0.08)
 bank("cloth", [K("cloth1"), K("cloth2"), K("cloth3"), K("cloth4")], rms=0.06)
 
 # стоны: одна длинная запись → отдельные звуки; длинные — смерть, короткие — боль
-parts = split_by_silence(load(P("death_pain_grunts.wav")))
+parts = [] if not want("grunt") else split_by_silence(load(P("death_pain_grunts.wav")))
 parts = [fades(p) for p in parts if 0.15 * SR < len(p) < 2.5 * SR]
 parts.sort(key=len)
 short, long_ = parts[:len(parts) * 2 // 3], parts[len(parts) * 2 // 3:]
@@ -152,18 +166,41 @@ for i, p in enumerate(short[:12], 1):
     save(norm(p, rms=0.1), "grunt", i)
 for i, p in enumerate(long_[-8:], 1):
     save(norm(p, rms=0.1), "death", i)
-print(f"grunt: {min(12, len(short))}, death: {min(8, len(long_))} (из {len(parts)} кусков)")
+if parts:
+    print(f"grunt: {min(12, len(short))}, death: {min(8, len(long_))} (из {len(parts)} кусков)")
 
 # треск огня: петля 8 с из длинной записи камина
-fire = load(P("fire.wav"))
-fire = fire[int(4 * SR):]
-save(norm(fades(loop(fire, 8.0), 0, 0), rms=0.08), "fire_loop", 1)
-print("fire_loop: 8 с")
+if want("fire_loop"):
+    fire = load(P("fire.wav"))
+    fire = fire[int(4 * SR):]
+    save(norm(fades(loop(fire, 8.0), 0, 0), rms=0.08), "fire_loop", 1)
+    print("fire_loop: 8 с")
 
-# музыка боя — только перекодирована в ogg (блоками: libsndfile падает на длинной записи разом)
-src = sf.SoundFile(P("battleThemeA.mp3"))
-with sf.SoundFile(os.path.join(OUT, "music_battle_01.ogg"), "w", src.samplerate, src.channels,
-                  format="OGG", subtype="VORBIS") as dst:
-    for block in src.blocks(blocksize=4096, dtype="float32", always_2d=True):
-        dst.write(block * 0.8)
-print(f"music_battle: {os.path.getsize(os.path.join(OUT, 'music_battle_01.ogg')) // 1024} KB")
+def music(src, name, seconds=None, gain=0.8, xfade=2.0):
+    """Музыка: стерео как есть, перекодирована в ogg блоками (libsndfile падает на длинной записи разом).
+    seconds — взять столько секунд и склеить в петлю."""
+    if not want(name):
+        return
+    out = os.path.join(OUT, f"{name}_01.ogg")
+    f = sf.SoundFile(P(src))
+    if seconds:
+        n, x = int(seconds * f.samplerate), int(xfade * f.samplerate)
+        d = f.read(n + x, dtype="float32", always_2d=True)
+        t = np.linspace(0, 1, x)[:, None]
+        d = np.concatenate([d[:x] * np.sqrt(t) + d[n:n + x] * np.sqrt(1 - t), d[x:n]])
+        with sf.SoundFile(out, "w", f.samplerate, d.shape[1], format="OGG", subtype="VORBIS") as dst:
+            for k in range(0, len(d), 4096):
+                dst.write(d[k:k + 4096] * gain)
+    else:
+        with sf.SoundFile(out, "w", f.samplerate, f.channels, format="OGG", subtype="VORBIS") as dst:
+            for block in f.blocks(blocksize=4096, dtype="float32", always_2d=True):
+                dst.write(block * gain)
+    print(f"{name}: {os.path.getsize(out) // 1024} KB")
+
+
+music("battleThemeA.mp3", "music_battle")
+music("boss_battle_#2_metal_loop.wav", "music_boss")
+music("cold_silence.ogg", "music_limbo", seconds=80)
+music("Heavenly_Loop_0.ogg", "music_heaven")
+music("hells_godedit_1.ogg", "music_hell")
+music("dark_ambient_drone_loop.flac", "music_menu", seconds=60)

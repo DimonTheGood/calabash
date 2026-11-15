@@ -42,3 +42,23 @@
 10. cynicmusic — Battle Theme A (CC0)
     https://opengameart.org/content/battle-theme-a  (battleThemeA.mp3)
     → music_battle_01 (только перекодирована, громкость 80%)
+
+11. nene — Boss Battle #2 (Symphonic Metal) (CC0)
+    https://opengameart.org/content/boss-battle-2-symphonic-metal  (boss_battle_#2_metal_loop.wav)
+    → music_boss_01 (волна с палачом Корнеем)
+
+12. eponasoft — Cold Silence (CC0)
+    https://opengameart.org/content/cold-silence  (cold_silence.ogg)
+    Взяты первые 80 с с плавной склейкой → music_limbo_01 (лимб, комикс-вступление)
+
+13. isaiah658 — Heavenly Loop (CC0)
+    https://opengameart.org/content/heavenly-loop  (Heavenly_Loop_0.ogg)
+    → music_heaven_01 (концовка «рай»)
+
+14. centurionofwar — Hell's God, part 1 (CC0)
+    https://opengameart.org/content/hells-god-part-1  (hells_godedit_1.ogg)
+    → music_hell_01 (концовка «ад»)
+
+15. Tsorthan Grove — Dark Ambient Drone (CC0)
+    https://opengameart.org/content/dark-ambient-drone  (dark_ambient_drone_loop.flac)
+    Взяты первые 60 с с плавной склейкой → music_menu_01 (главное меню)

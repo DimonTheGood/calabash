@@ -68,7 +68,12 @@ namespace Calabash.Enemies
         public float bucketFlightTime = 0.9f;
         public float splashRadius = 1.8f;
 
+        [Header("Поджог")]
+        [Tooltip("Сколько горит после поджога, с")] public float burnTime = 3.5f;
+        [Tooltip("Урон огнём в секунду")] public float burnDps = 9f;
+
         [Header("Материалы (ставит EnemySetup)")]
+        public Material burnMaterial;
         public Material telegraphMaterial;
         public Material arrowMaterial;
         public Material waterMaterial;
@@ -89,6 +94,10 @@ namespace Calabash.Enemies
         Vector3 velocity, aimPoint, lungeDir;
         bool grounded = true;
         float lastHitTime = -10f;
+        float burnTimer;
+        ParticleSystem burnFx;
+        /// <summary>Горит ли сейчас.</summary>
+        public bool Burning => burnTimer > 0f;
         string anim;
         Telegraph telegraph;
         CapsuleCollider capsule;
@@ -142,6 +151,9 @@ namespace Calabash.Enemies
                 Die(hit);
                 return new HitResult { damageDealt = dealt, killed = true };
             }
+            bool fiery = hit.kind == AttackKind.DashStrike || hit.kind == AttackKind.Uppercut || hit.kind == AttackKind.SlamWave
+                         || (hit.kind == AttackKind.Heavy && hit.damage >= 35f);
+            if (fiery || PlayerTarget.igniteAll) Ignite(burnTime);
             if (heavyHit)
             {
                 CancelAttack();
@@ -155,8 +167,83 @@ namespace Calabash.Enemies
             return new HitResult { damageDealt = dealt, killed = false };
         }
 
+        /// <summary>Поджечь: горит seconds секунд, теряет здоровье, на теле пламя.</summary>
+        public void Ignite(float seconds)
+        {
+            if (!IsAlive) return;
+            if (burnTimer <= 0f) CalabashSfx.Play("fire_burst", transform.position + Vector3.up, 0.6f, 1.2f);
+            burnTimer = Mathf.Max(burnTimer, seconds);
+            if (burnFx == null) burnFx = MakeBurnFx();
+            if (burnFx != null && !burnFx.isPlaying) burnFx.Play();
+        }
+
+        void BurnTick(float dt)
+        {
+            if (burnTimer <= 0f) return;
+            burnTimer -= dt;
+            if (burnTimer <= 0f && burnFx != null) burnFx.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            if (!IsAlive) return;
+            health -= burnDps * dt;
+            if (health <= 0f)
+            {
+                health = 0f;
+                if (PlayerTarget.Fuel != null) PlayerTarget.Fuel.Add(PlayerTarget.fuelPerBurnKill);
+                Die(default);
+            }
+        }
+
+        ParticleSystem MakeBurnFx()
+        {
+            if (burnMaterial == null) return null;
+            var go = new GameObject("Burn");
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = Vector3.up * 0.9f;
+            var ps = go.AddComponent<ParticleSystem>();
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main = ps.main;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.8f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.9f);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color32(0xFF, 0xD1, 0x66, 0xFF), new Color32(0xFF, 0x7A, 0x18, 0xFF));
+            main.gravityModifier = -0.6f;
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.maxParticles = 80;
+            var em = ps.emission; em.rateOverTime = 40f;
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(0.5f, 1.4f, 0.4f);
+            var tsa = ps.textureSheetAnimation;
+            tsa.enabled = true; tsa.numTilesX = 16; tsa.numTilesY = 4;
+            var col = ps.colorOverLifetime; col.enabled = true;
+            var g = new Gradient();
+            g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                      new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.15f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
+            col.color = g;
+            var r = go.GetComponent<ParticleSystemRenderer>();
+            r.sharedMaterial = burnMaterial;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return ps;
+        }
+
+        void KillBlast()
+        {
+            float dmg = PlayerTarget.killBlastDamage;
+            if (dmg <= 0f) return;
+            Vector3 c = transform.position + Vector3.up;
+            if (PlayerTarget.Fx != null) PlayerTarget.Fx.Impact(c, Vector3.up, 1.4f);
+            CalabashSfx.Play("explosion", c, 0.7f, 1.1f);
+            foreach (var e in All.ToArray())
+            {
+                if (e == this || !e.IsAlive) continue;
+                Vector3 d = e.transform.position - transform.position;
+                if (d.sqrMagnitude > 9f) continue;
+                Vector3 dir = d.sqrMagnitude > 0.01f ? d.normalized : Vector3.forward;
+                e.TakeHit(new HitInfo { damage = dmg, point = e.transform.position + Vector3.up, direction = dir,
+                                        knockback = dir * 8f + Vector3.up * 4f, kind = AttackKind.SlamWave, attacker = gameObject });
+            }
+        }
+
         void Die(in HitInfo hit)
         {
+            if (state == State.Dead) return;
             CancelAttack();
             state = State.Dead;
             timer = 4f;
@@ -165,6 +252,7 @@ namespace Calabash.Enemies
             CalabashSfx.Play("death", transform.position + Vector3.up * 1.5f, 1f, kind == EnemyKind.Executioner ? 0.7f : Random.Range(0.92f, 1.08f));
             All.Remove(this);
             Died?.Invoke(this);
+            KillBlast();
         }
 
         // ------------------------------------------------------------------ поведение
@@ -176,6 +264,8 @@ namespace Calabash.Enemies
             chargeCooldown -= dt;
             repathTimer -= dt;
             Vector3 move = Vector3.zero;
+            BurnTick(dt);
+            if (state == State.Dead && burnFx != null && burnTimer <= 0f && timer < 2f) burnFx.Stop(true, ParticleSystemStopBehavior.StopEmitting);
             bool playerOk = PlayerTarget.Alive;
             Vector3 toPlayer = Flat(PlayerTarget.Position - transform.position);
             float dist = toPlayer.magnitude;

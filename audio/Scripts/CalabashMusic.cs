@@ -1,45 +1,93 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Calabash.Audio
 {
     /// <summary>
-    /// Музыка боя: играет по кругу, громче в бою, тише в затишье. Бой включает кто угодно:
-    /// CalabashMusic.Combat = true (так делает директор волн из enemies/).
+    /// Музыка: несколько треков (бой, босс, меню, лимб, рай, ад), между ними плавный переход.
+    /// Боевая музыка тише в затишье и громче в бою: CalabashMusic.Combat = true (так делает директор волн).
+    /// Трек: CalabashMusic.Play("boss"). Громкость из настроек: CalabashMusic.VolumeScale.
     /// </summary>
     public class CalabashMusic : MonoBehaviour
     {
+        [System.Serializable]
+        public class Track
+        {
+            public string id;
+            public AudioClip clip;
+            [Range(0f, 1f)] public float volume = 0.4f;
+        }
+
         public static CalabashMusic Instance { get; private set; }
         /// <summary>Идёт бой — музыка громче.</summary>
         public static bool Combat;
+        /// <summary>Громкость музыки из настроек, 0..1.</summary>
+        public static float VolumeScale = 1f;
 
-        public AudioClip music;
-        [Range(0f, 1f)] public float calmVolume = 0.12f;
-        [Range(0f, 1f)] public float combatVolume = 0.4f;
-        [Tooltip("Скорость смены громкости, доля в секунду")] public float fade = 0.25f;
+        [Tooltip("Трек со старта сцены")] public string startTrack = "battle";
+        public List<Track> tracks = new List<Track>();
+        [Tooltip("Устарело: трек боя, если список пуст")] public AudioClip music;
+        [Tooltip("Боевая музыка в затишье — доля громкости")]
+        [Range(0f, 1f)] public float calmShare = 0.3f;
+        [Tooltip("Скорость перехода, доля в секунду")] public float fade = 0.5f;
 
-        AudioSource source;
+        AudioSource a, b;          // a — текущий, b — уходящий
+        Track current;
 
         void Awake()
         {
             Instance = this;
             Combat = false;
-            source = gameObject.AddComponent<AudioSource>();
-            source.clip = music;
-            source.loop = true;
-            source.spatialBlend = 0f;
-            source.volume = 0f;
-            source.priority = 0;
+            a = MakeSource();
+            b = MakeSource();
+            if (tracks.Count == 0 && music != null) tracks.Add(new Track { id = "battle", clip = music, volume = 0.4f });
+        }
+
+        AudioSource MakeSource()
+        {
+            var s = gameObject.AddComponent<AudioSource>();
+            s.loop = true;
+            s.spatialBlend = 0f;
+            s.volume = 0f;
+            s.priority = 0;
+            s.ignoreListenerPause = true;
+            return s;
         }
 
         void Start()
         {
-            if (music != null) source.Play();
+            if (current == null) PlayTrack(startTrack);
+        }
+
+        /// <summary>Сменить трек (если такого нет — ничего).</summary>
+        public static void Play(string id)
+        {
+            if (Instance != null) Instance.PlayTrack(id);
+        }
+
+        public void PlayTrack(string id)
+        {
+            var t = tracks.Find(x => x.id == id && x.clip != null);
+            if (t == null || t == current) return;
+            current = t;
+            (a, b) = (b, a);
+            a.clip = t.clip;
+            a.volume = 0f;
+            a.Play();
         }
 
         void Update()
         {
-            float want = Combat ? combatVolume : calmVolume;
-            source.volume = Mathf.MoveTowards(source.volume, want, fade * Time.unscaledDeltaTime);
+            float dt = Time.unscaledDeltaTime;
+            float want = 0f;
+            if (current != null)
+            {
+                want = current.volume * VolumeScale;
+                if (current.id == "battle" && !Combat) want *= calmShare;
+            }
+            a.volume = Mathf.MoveTowards(a.volume, want, fade * dt);
+            b.volume = Mathf.MoveTowards(b.volume, 0f, fade * dt);
+            if (b.isPlaying && b.volume <= 0f) b.Stop();
         }
 
         void OnDestroy()

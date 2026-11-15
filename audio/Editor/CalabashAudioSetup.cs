@@ -36,6 +36,12 @@ namespace Calabash.Audio.EditorTools
                 { "death", (0.85f, 0.9f, 1.05f, 0.9f, 6f) },
             };
 
+        /// <summary>Громкость треков музыки (music_&lt;id&gt;).</summary>
+        static readonly Dictionary<string, float> MusicVolume = new Dictionary<string, float>
+        {
+            { "battle", 0.4f }, { "boss", 0.5f }, { "menu", 0.45f }, { "limbo", 0.5f }, { "heaven", 0.5f }, { "hell", 0.55f },
+        };
+
         /// <summary>Папка модуля (Assets/Calabash/Audio).</summary>
         public static string RootFolder()
         {
@@ -53,7 +59,7 @@ namespace Calabash.Audio.EditorTools
         public static bool Available => AssetDatabase.IsValidFolder(SoundsFolder);
 
         /// <summary>Звук в сцене и на герое. Возвращает CalabashSfx или null, если звуков нет.</summary>
-        public static CalabashSfx Setup(GameObject player)
+        public static CalabashSfx Setup(GameObject player, string startTrack = "battle")
         {
             if (!Available)
             {
@@ -77,7 +83,13 @@ namespace Calabash.Audio.EditorTools
 
             var music = new GameObject("Music").AddComponent<CalabashMusic>();
             music.transform.SetParent(root.transform, false);
-            if (clips.TryGetValue("music_battle", out var m)) music.music = m[0];
+            music.startTrack = startTrack;
+            foreach (var kv in clips.Where(c => c.Key.StartsWith("music_")).OrderBy(c => c.Key))
+            {
+                string id = kv.Key.Substring("music_".Length);
+                float vol = MusicVolume.TryGetValue(id, out float v) ? v : 0.4f;
+                music.tracks.Add(new CalabashMusic.Track { id = id, clip = kv.Value[0], volume = vol });
+            }
 
             if (player != null)
             {
