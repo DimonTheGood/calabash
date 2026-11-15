@@ -78,7 +78,8 @@ namespace Calabash.Combat.EditorTools
             Material fire = MovementTestSceneBuilder.FireMaterial;
 
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            MovementTestSceneBuilder.SetupAtmosphere(new Color32(0xDD, 0xDB, 0xD5, 0xFF), 15f, 120f);
+            MovementTestSceneBuilder.SetupAtmosphere(NightFog, 4f, 42f);
+            SetupNight();
 
             // деревня
             var mapAsset = AssetDatabase.LoadAssetAtPath<GameObject>(mapPath);
@@ -152,10 +153,11 @@ namespace Calabash.Combat.EditorTools
             var cam = player.GetComponentInChildren<Camera>();
             if (cam != null)
             {
-                cam.backgroundColor = new Color32(0xDD, 0xDB, 0xD5, 0xFF);
-                cam.farClipPlane = 600f;
-                // «мрак»: манга-фильтр как в рендерах village/renders, G — вкл/выкл
-                Calabash.Style.EditorTools.MangaGloomSetup.AddTo(cam);
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = NightFog;
+                cam.farClipPlane = 200f;
+                // «мрак»: манга-фильтр как в рендерах village/renders, G — вкл/выкл; ночью — тёмный вариант
+                NightGloom(Calabash.Style.EditorTools.MangaGloomSetup.AddTo(cam));
             }
             var respawn = player.GetComponent<TestRespawn>();
             if (respawn != null) respawn.killY = -20f;
@@ -179,6 +181,39 @@ namespace Calabash.Combat.EditorTools
         }
 
         /// <summary>Деревня — первая сцена сборки игры.</summary>
+        /// <summary>Цвет ночной мглы: туман и небо.</summary>
+        public static readonly Color NightFog = new Color(0.025f, 0.027f, 0.035f);
+
+        /// <summary>
+        /// Ночь: луны почти нет, мгла в 4–42 м, окружающий свет еле виден.
+        /// Главный свет — огонь самого Ждана (ZhdanFireLight) и горящие враги.
+        /// </summary>
+        static void SetupNight()
+        {
+            var moon = Object.FindAnyObjectByType<Light>();
+            if (moon != null)
+            {
+                moon.name = "Moon";
+                moon.color = new Color(0.55f, 0.62f, 0.85f);
+                moon.intensity = 0.12f;
+                moon.transform.rotation = Quaternion.Euler(38f, -35f, 0f);
+            }
+            RenderSettings.ambientLight = new Color(0.07f, 0.075f, 0.095f);
+        }
+
+        /// <summary>Манга-фильтр для ночи: тёмное небо с бледными полосами, сильнее виньетка.</summary>
+        static void NightGloom(Calabash.Style.MangaGloom g)
+        {
+            if (g == null) return;
+            g.skyDarken = 0.35f;
+            g.skyStreaks = 0.45f;
+            g.streakTone = 0.3f;
+            g.snowStreaks = 0.35f;
+            g.dotInk = 0.12f;
+            g.vignette = 0.6f;
+            g.keepColorSaturation = 0.42f;   // освещённое огнём остаётся бумагой и тушью, цветной только сам огонь
+        }
+
         static void AddToBuild(string scenePath)
         {
             var list = new System.Collections.Generic.List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
