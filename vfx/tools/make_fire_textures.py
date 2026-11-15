@@ -23,6 +23,7 @@ import numpy as np
 from PIL import Image
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else "."
+REFLOOR = "--refloor" in sys.argv          # только срезать слабую альфу у готовых текстур (исходники не нужны)
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Textures")
 K = os.path.join(SRC, "kenney_particlePack", "PNG")
 
@@ -40,9 +41,19 @@ def edge_fade(tw, th, m):
     return np.outer(fy, fx)
 
 
+ALPHA_FLOOR = 14   # слабее этого альфа обнуляется: манга-фильтр иначе вытягивает дымку в видимый квадрат частицы
+
+
+def floor_alpha(arr):
+    arr = arr.astype(float)
+    a = arr[..., 3]
+    arr[..., 3] = np.clip((a - ALPHA_FLOOR) * 255.0 / (255 - ALPHA_FLOOR), 0, 255)
+    return arr
+
+
 def save(arr, name):
     path = os.path.join(OUT, name)
-    Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), "RGBA").save(path, optimize=True)
+    Image.fromarray(np.clip(floor_alpha(arr), 0, 255).astype(np.uint8), "RGBA").save(path, optimize=True)
     print(f"{name}: {os.path.getsize(path) // 1024} KB")
 
 
@@ -97,6 +108,11 @@ def flipbook(src, name, tiles, size, shrink=0.8, cel=None, base_fade=True):
         img = img.resize(size, Image.LANCZOS)
     save(np.array(img).astype(float), name)
 
+
+if REFLOOR:
+    for n in ("T_Flame03_16x4.png", "T_SmallFlame01_16x4.png", "T_Flames_3x2.png", "T_Burst_3x2.png", "T_Sparks_4x2.png"):
+        save(np.array(Image.open(os.path.join(OUT, n)).convert("RGBA")).astype(float), n)
+    sys.exit(0)
 
 FLAME_CEL = (0.12, 0.32)     # плотный силуэт пламени
 atlas("T_Flames_3x2.png", [f"flame_0{i}" for i in range(1, 7)], 3, 2, cel=(0.15, 0.4))

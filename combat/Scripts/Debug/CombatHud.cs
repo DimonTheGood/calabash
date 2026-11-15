@@ -28,7 +28,8 @@ namespace Calabash.Combat
         Calabash.Style.MangaGloom gloom;
         string lastName = "";
         float nameTimer, shown = -1f, trail = -1f, gain, lastFuel = -1f;
-        static Texture2D gradient, tongues, glow;
+        static Texture2D gradient, tongues, glow, speedLines;
+        float impact, impactMax, impactAngle;
 
         static float S => Mathf.Clamp(Screen.height / 1080f, 0.6f, 2f);
 
@@ -37,6 +38,18 @@ namespace Calabash.Combat
             if (combat == null) combat = GetComponent<ZhdanCombat>();
             if (fuel == null) fuel = GetComponent<ZhdanFuel>();
             gloom = GetComponentInChildren<Calabash.Style.MangaGloom>();
+        }
+
+        void OnEnable() { if (combat != null) combat.onHit.AddListener(OnHit); }
+        void OnDisable() { if (combat != null) combat.onHit.RemoveListener(OnHit); }
+
+        /// <summary>Манга-кадр удара: на миг по краям экрана — чернильные линии скорости.</summary>
+        void OnHit(AttackKind kind)
+        {
+            float k = kind == AttackKind.Heavy || kind == AttackKind.DashStrike ? 1f : kind == AttackKind.Light3 || kind == AttackKind.Uppercut ? 0.7f : 0.45f;
+            if (k < impact) return;
+            impact = impactMax = k;
+            impactAngle = Random.Range(0f, 360f);
         }
 
         void Update()
@@ -51,6 +64,7 @@ namespace Calabash.Combat
             nameTimer -= Time.unscaledDeltaTime;
             if (nameTimer <= 0f) lastName = "";
 
+            impact = Mathf.MoveTowards(impact, 0f, Time.unscaledDeltaTime * 4.5f);
             if (fuel != null)
             {
                 float f = fuel.Fuel01, dt = Time.unscaledDeltaTime;
@@ -75,6 +89,7 @@ namespace Calabash.Combat
             }
             float w = Screen.width, h = Screen.height, s = S;
 
+            if (impact > 0.01f) SpeedLines(w, h);
             if (fuel != null) FireGauge(h, s);
 
             // замах тяжёлого — дуга-полоса под прицелом
@@ -177,6 +192,18 @@ namespace Calabash.Combat
             GUI.Label(nb, Mathf.CeilToInt(fuel.Fuel).ToString(), num);
         }
 
+        void SpeedLines(float w, float h)
+        {
+            MakeTextures();
+            float a = Mathf.Clamp01(impact / Mathf.Max(impactMax, 0.01f));
+            float d = Mathf.Max(w, h) * (1.5f - 0.15f * (1f - a));         // линии слегка сходятся к центру
+            var old = GUI.matrix; var oc = GUI.color;
+            GUIUtility.RotateAroundPivot(impactAngle, new Vector2(w * 0.5f, h * 0.5f));
+            GUI.color = new Color(0f, 0f, 0f, 0.85f * a * Mathf.Lerp(0.6f, 1f, impactMax));
+            GUI.DrawTexture(new Rect(w * 0.5f - d * 0.5f, h * 0.5f - d * 0.5f, d, d), speedLines);
+            GUI.matrix = old; GUI.color = oc;
+        }
+
         static void MakeTextures()
         {
             if (gradient != null) return;
@@ -215,6 +242,30 @@ namespace Calabash.Combat
                     glow.SetPixel(x, y, new Color(1, 1, 1, a * a));
                 }
             glow.Apply();
+
+            // линии скорости: клинья от края к центру, центр пустой
+            const int SN = 512;
+            speedLines = new Texture2D(SN, SN, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.DontSave };
+            var rnd = new System.Random(5);
+            const int RAYS = 90;
+            var width = new float[RAYS]; var start = new float[RAYS];
+            for (int i = 0; i < RAYS; i++) { width[i] = 0.25f + (float)rnd.NextDouble() * 0.75f; start[i] = 0.42f + (float)rnd.NextDouble() * 0.25f; }
+            var px = new Color[SN * SN];
+            for (int y = 0; y < SN; y++)
+                for (int x = 0; x < SN; x++)
+                {
+                    float dx = (x - SN * 0.5f) / (SN * 0.5f), dy = (y - SN * 0.5f) / (SN * 0.5f);
+                    float r = Mathf.Sqrt(dx * dx + dy * dy);
+                    float ang = (Mathf.Atan2(dy, dx) / (2f * Mathf.PI) + 1f) % 1f * RAYS;
+                    int i = Mathf.FloorToInt(ang) % RAYS;
+                    float f = ang - Mathf.Floor(ang);                          // 0..1 внутри сектора
+                    float half = 0.5f * width[i] * Mathf.Clamp01((r - start[i]) / 0.5f);   // клин сужается к центру
+                    float a = Mathf.Abs(f - 0.5f) < half ? 1f : 0f;
+                    a *= Mathf.Clamp01((r - start[i]) * 6f);
+                    px[y * SN + x] = new Color(1, 1, 1, a);
+                }
+            speedLines.SetPixels(px);
+            speedLines.Apply();
         }
 
         static void Fill(Rect r, Color col)

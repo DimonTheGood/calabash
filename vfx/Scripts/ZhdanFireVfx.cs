@@ -444,6 +444,13 @@ namespace Calabash.Vfx
             if (fireLight != null) fireLight.Flare(k);
             dir = dir.sqrMagnitude > 0.001f ? dir.normalized : transform.forward;
             float b = k * blastScale;
+            // у самой камеры (кулак от первого лица) вспышка не должна закрывать полэкрана
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                float cd = Vector3.Distance(cam.transform.position, p);
+                if (cd < 2.2f) b *= Mathf.Lerp(0.35f, 1f, cd / 2.2f);
+            }
             FireFx.Burst(hitBurst, p, 1, Vector3.zero, 0f, 0f, b);
             FireFx.Burst(hitFire, p, Mathf.RoundToInt(10 * k), dir * 4f * k, 6f * b, 0.4f, b);           // огненный шар
             FireFx.Burst(hitTongues, p, Mathf.RoundToInt(14 * k), dir * 3f * k, 8f * b, 0.3f, Mathf.Sqrt(b) * 1.3f);
