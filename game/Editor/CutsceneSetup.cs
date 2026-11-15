@@ -183,7 +183,7 @@ namespace Calabash.Game.EditorTools
         }
 
         // ------------------------------------------------------------------ место
-        static Vector3 Ground(Vector3 p)
+        internal static Vector3 Ground(Vector3 p)
         {
             if (Physics.Raycast(p + Vector3.up * 30f, Vector3.down, out var hit, 60f, ~0, QueryTriggerInteraction.Ignore))
                 return hit.point;
@@ -236,7 +236,7 @@ namespace Calabash.Game.EditorTools
             Prim(PrimitiveType.Cube, parent, "KingPlatform", p + Vector3.up * 0.4f, new Vector3(2.4f, 0.8f, 2.4f), wood);
         }
 
-        static GameObject Prim(PrimitiveType t, Transform parent, string name, Vector3 local, Vector3 scale, Material m)
+        internal static GameObject Prim(PrimitiveType t, Transform parent, string name, Vector3 local, Vector3 scale, Material m)
         {
             var go = GameObject.CreatePrimitive(t);
             go.name = name;
@@ -248,7 +248,7 @@ namespace Calabash.Game.EditorTools
             return go;
         }
 
-        static Animator Hero(Transform parent, Vector3 pos, Vector3 facing)
+        internal static Animator Hero(Transform parent, Vector3 pos, Vector3 facing)
         {
             string path = CharacterAnimSetup.PrepareModel(CharacterAnimSetup.HeroModel, true);
             if (path == null) return null;
@@ -351,6 +351,33 @@ namespace Calabash.Game.EditorTools
             l.AddComponent<TorchFlicker>().intensity = 16f;
         }
 
+        /// <summary>Огонь на теле актёра (Ждан в концовках): языки пламени по фигуре и тёплый свет.</summary>
+        internal static (ParticleSystem, Light) BodyFire(Transform actor, Material flame)
+        {
+            var ps = NewPs(actor, "BodyFire", actor.position + Vector3.up * 1f);
+            ps.transform.SetParent(actor, true);
+            var main = ps.main;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.5f, 0.9f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.4f, 1.2f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.45f, 0.9f);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color32(0xFF, 0xD1, 0x66, 0xFF), new Color32(0xFF, 0x7A, 0x18, 0xFF));
+            main.gravityModifier = -0.5f;
+            main.maxParticles = 400;
+            var em = ps.emission; em.rateOverTime = 90f;
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(0.55f, 1.7f, 0.4f);
+            Flipbook(ps, flame, 16, 4);
+            var l = new GameObject("BodyLight");
+            l.transform.SetParent(actor, false);
+            l.transform.localPosition = new Vector3(0f, 1.4f, 0.8f);
+            var lamp = l.AddComponent<Light>();
+            lamp.type = LightType.Point;
+            lamp.color = new Color(1f, 0.68f, 0.4f);
+            lamp.range = 12f;
+            lamp.intensity = 14f;
+            lamp.shadows = LightShadows.None;
+            return (ps, lamp);
+        }
+
         // ------------------------------------------------------------------ огонь костра
         static ParticleSystem Flames(Transform parent, Vector3 p, Material m)
         {
@@ -399,7 +426,7 @@ namespace Calabash.Game.EditorTools
             return ps;
         }
 
-        static ParticleSystem NewPs(Transform parent, string name, Vector3 pos)
+        internal static ParticleSystem NewPs(Transform parent, string name, Vector3 pos)
         {
             var go = new GameObject(name);
             go.transform.SetParent(parent, false);
@@ -412,7 +439,7 @@ namespace Calabash.Game.EditorTools
             return ps;
         }
 
-        static void Flipbook(ParticleSystem ps, Material m, int x, int y)
+        internal static void Flipbook(ParticleSystem ps, Material m, int x, int y)
         {
             var tsa = ps.textureSheetAnimation;
             tsa.enabled = true; tsa.numTilesX = x; tsa.numTilesY = y;
@@ -427,7 +454,7 @@ namespace Calabash.Game.EditorTools
         }
 
         // ------------------------------------------------------------------ ассеты
-        static Material Mat(string path, Color c)
+        internal static Material Mat(string path, Color c)
         {
             var m = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (m == null)
@@ -441,7 +468,7 @@ namespace Calabash.Game.EditorTools
             return m;
         }
 
-        static Material FindMat(string name)
+        internal static Material FindMat(string name)
         {
             foreach (string guid in AssetDatabase.FindAssets($"{name} t:Material"))
             {

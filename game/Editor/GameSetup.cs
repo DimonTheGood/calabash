@@ -150,6 +150,68 @@ namespace Calabash.Game.EditorTools
             var hellFire = HellFire(flame);
             hellFire.gameObject.SetActive(false);
 
+            // концовки-катсцены: своя камера, Ждан со стороны, реквизит рая и ада (всё выключено до концовки)
+            var endCamGo = new GameObject("EndingCamera");
+            var endCam = endCamGo.AddComponent<Camera>();
+            endCam.fieldOfView = 45f;
+            endCam.nearClipPlane = 0.1f;
+            endCam.farClipPlane = 300f;
+            endCam.clearFlags = CameraClearFlags.SolidColor;
+            endCam.backgroundColor = white;
+            endCamGo.AddComponent<AudioListener>();
+            Calabash.Style.EditorTools.MangaGloomSetup.AddTo(endCam);
+            endCamGo.SetActive(false);
+
+            Animator actorAnim = CutsceneSetup.Hero(null, Vector3.zero, Vector3.forward);
+            Transform actor = actorAnim != null ? actorAnim.transform.parent : null;
+            ParticleSystem actorFire = null;
+            Light actorLight = null;
+            if (actor != null)
+            {
+                actor.name = "Zhdan_Ending";
+                (actorFire, actorLight) = CutsceneSetup.BodyFire(actor, flame);
+                actor.gameObject.SetActive(false);
+            }
+
+            // рай: каравай на белом постаменте, светлые искры поднимаются
+            var heaven = new GameObject("HeavenProps");
+            Vector3 bp = new Vector3(3.2f, 0f, 5f);
+            CutsceneSetup.Prim(PrimitiveType.Cylinder, heaven.transform, "Pedestal", bp + Vector3.up * 0.5f, new Vector3(0.7f, 0.5f, 0.7f),
+                               CutsceneSetup.Mat($"{root}/Materials/M_Pedestal.mat", new Color(0.93f, 0.92f, 0.9f)));
+            Transform bread = CutsceneSetup.Prim(PrimitiveType.Sphere, heaven.transform, "Bread", bp + Vector3.up * 1.16f, new Vector3(0.48f, 0.32f, 0.48f),
+                               CutsceneSetup.Mat($"{root}/Materials/M_Bread.mat", new Color32(0x8A, 0x5A, 0x2E, 0xFF))).transform;
+            var motes = CutsceneSetup.NewPs(heaven.transform, "Motes", new Vector3(0f, 0.2f, 6f));
+            {
+                var main = motes.main;
+                main.playOnAwake = true;
+                main.prewarm = true;
+                main.loop = true;
+                main.startLifetime = new ParticleSystem.MinMaxCurve(6f, 9f);
+                main.startSpeed = 0f;
+                main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f);
+                main.startColor = new Color(1f, 0.95f, 0.8f);
+                main.gravityModifier = -0.03f;
+                main.maxParticles = 600;
+                var em = motes.emission; em.rateOverTime = 60f;
+                var sh = motes.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(30f, 0.2f, 30f);
+                CutsceneSetup.Flipbook(motes, CutsceneSetup.FindMat("M_FX_Sparks"), 4, 2);
+            }
+            heaven.SetActive(false);
+
+            // ад: убитые жители стоят кругом в огне
+            var hellCrowd = new GameObject("HellCrowd");
+            string[] dead = { "king", "nikodim", "gavrila", "korney", "guard", "peasant", "agafya", "archer", "bucketguard", "efim" };
+            for (int i = 0; i < dead.Length && CharacterAnimSetup.Available; i++)
+            {
+                float a = 25f + i * (310f / dead.Length);               // спереди, где Лимб, — просвет
+                Vector3 d = Quaternion.AngleAxis(a, Vector3.up) * Vector3.forward;
+                var go = CharacterAnimSetup.CreateNpc(dead[i], hellCrowd.transform, d * (9f + (i % 3) * 1.4f), -d, VillagerNpc.Role.Stander, null, 9999f);
+                if (go == null) continue;
+                Object.DestroyImmediate(go.GetComponent<VillagerNpc>());
+                Object.DestroyImmediate(go.GetComponent<CapsuleCollider>());
+            }
+            hellCrowd.SetActive(false);
+
             var after = new GameObject("Afterlife").AddComponent<Afterlife>();
             after.limbo = limbo != null ? limbo.transform : null;
             after.ground = ground.GetComponent<Renderer>();
@@ -157,8 +219,13 @@ namespace Calabash.Game.EditorTools
             after.hellFire = hellFire;
             after.sun = Object.FindAnyObjectByType<Light>();
             after.limboImage = Tex("limbo");
-            after.heavenImage = Tex("zhdan0");
-            after.hellImage = Tex("zhdan4");
+            after.endCam = endCam;
+            after.actor = actor;
+            after.actorFire = actorFire;
+            after.actorLight = actorLight;
+            after.heavenProps = heaven;
+            after.bread = bread;
+            after.hellCrowd = hellCrowd;
 
             string path = $"{root}/Scenes/Afterlife.unity";
             EditorSceneManager.SaveScene(scene, path);
