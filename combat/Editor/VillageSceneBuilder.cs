@@ -162,15 +162,19 @@ namespace Calabash.Combat.EditorTools
             AddSnow(player.transform, root);
 
             // звук (audio/) и враги волнами (enemies/)
-            Calabash.Audio.EditorTools.CalabashAudioSetup.Setup(player);
+            Calabash.Audio.EditorTools.CalabashAudioSetup.Setup(player, "menu");
             var area = new Bounds(map.transform.position, Vector3.zero);
             foreach (var r in map.GetComponentsInChildren<Renderer>()) area.Encapsulate(r.bounds);
             Calabash.Enemies.EditorTools.EnemySetup.Setup(area, new[] { "Road", "Street" });
+            // ход игры: меню, комикс, пауза, улучшения, смерть → лимб (game/)
+            Calabash.Game.EditorTools.GameSetup.SetupVillage();
 
             string scenePath = $"{root}/Scenes/VillageTest.unity";
             EditorSceneManager.SaveScene(scene, scenePath);
             AssetDatabase.SaveAssets();
             AddToBuild(scenePath);
+            // лимб, рай и ад — вторая сцена; собирается сейчас же, с теми же контроллерами анимаций
+            Calabash.Game.EditorTools.GameSetup.BuildAfterlife();
             return scenePath;
         }
 

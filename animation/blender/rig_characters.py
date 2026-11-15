@@ -240,6 +240,7 @@ def skin(rig, body, extras, knee_z):
                 ws.append(top(acc))
         else:
             ws = [None] * len(me.vertices)
+            assigned = []
             for part in clusters(me, loose_parts(me)):
                 acc = {}
                 low = max(me.vertices[i].co.z for i in part) < knee_z + 0.05   # straps, shoes: may follow the legs
@@ -250,7 +251,24 @@ def skin(rig, body, extras, knee_z):
                         if not low and name.startswith(LEG_BONES):
                             continue
                         acc[name] = acc.get(name, 0.0) + val * k
-                bone = max(acc, key=acc.get) if acc else "Hips"
+                assigned.append((part, max(acc, key=acc.get) if acc else "Hips", low))
+            # a low part touching something held in the hand (axe head on its handle) goes with the hand
+            held = [(p, b) for p, b, lo in assigned if not lo and b.startswith(("UpperArm", "Forearm", "Hand"))]
+            for n, (part, bone, low) in enumerate(assigned):
+                if not low or not held:
+                    continue
+                pk = KDTree(len(part))
+                for j, i in enumerate(part):
+                    pk.insert(me.vertices[i].co, j)
+                pk.balance()
+                for hp, hb in held:
+                    if min(pk.find(me.vertices[i].co)[2] for i in hp) < 0.06:
+                        assigned[n] = (part, hb, low)
+                        break
+            for part, bone, low in assigned:
+                if os.environ.get("RIG_DEBUG"):
+                    zs = [me.vertices[i].co.z for i in part]; xs = [me.vertices[i].co.x for i in part]
+                    print(f"[part] {ob.name} n={len(part)} z={min(zs):.2f}..{max(zs):.2f} x={min(xs):.2f}..{max(xs):.2f} -> {bone}")
                 for i in part:
                     ws[i] = {bone: 1.0}
         set_weights(ob, ws)

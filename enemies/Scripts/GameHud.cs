@@ -103,8 +103,8 @@ namespace Calabash.Enemies
             }
 
             if (ph == WaveDirector.Phase.GameOver) EndScreen(w, h, Ink, Paper, "ОГОНЬ ПОГАС",
-                $"волна {director.WaveIndex + 1}/{director.WaveCount} · убито: {director.Kills}\n\nR — заново");
-            else if (ph == WaveDirector.Phase.Victory) EndScreen(w, h, Paper, Ink, "ДЕРЕВНЯ ОТБИТА",
+                director.externalFlow ? "" : $"волна {director.WaveIndex + 1}/{director.WaveCount} · убито: {director.Kills}\n\nR — заново");
+            else if (ph == WaveDirector.Phase.Victory && !director.externalFlow) EndScreen(w, h, Paper, Ink, "ДЕРЕВНЯ ОТБИТА",
                 $"убито: {director.Kills} · время {Mathf.FloorToInt(director.SurvivedTime / 60)}:{Mathf.FloorToInt(director.SurvivedTime % 60):00}\n\nR — ещё раз");
         }
 

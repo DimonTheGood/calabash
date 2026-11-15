@@ -17,7 +17,7 @@
 | Огонь на теле | треск по кругу, громче с топливом и на замахе |
 | Урон по Ждану | глухой удар; вода — всплеск |
 | Враги | стоны от ударов, крики смерти, свист копья, звон ведра, тетива, стрела в дереве |
-| Музыка | играет всегда, громче во время волны |
+| Музыка | своя у меню, боя, волны палача, лимба, рая и ада; бой — громче во время волны |
 
 Удары звучат по-разному: из банка берётся случайный клип (не тот же, что в прошлый раз),
 с разбросом высоты и громкости. Звук идёт в реальном времени, поэтому его слышно и во время стоп-кадра.
@@ -50,13 +50,15 @@ CalabashMusic.Combat = true;                     // музыка громче
 
 Банки: `punch_light`, `punch_heavy`, `hurt_hit`, `swing`, `footstep_snow`, `land`, `splash`,
 `explosion`, `fire_burst`, `metal_clank`, `blade`, `wood_hit`, `bow_release`, `cloth`, `grunt`, `death`.
-Плюс `fire_loop` (треск на герое) и `music_battle`.
+Плюс `fire_loop` (треск на герое) и музыка: `music_battle`, `music_boss`, `music_menu`,
+`music_limbo`, `music_heaven`, `music_hell`. Трек включают по имени: `CalabashMusic.Play("limbo")`
+(плавный переход за 1,5 с).
 
 ## Как пересобрать звуки
 
 Скачайте архивы из `Sounds/LICENSE.txt` и распакуйте их в одну папку. Файлы `.7z` тоже нужно распаковать.
 Отдельные файлы (`fire.wav`, `fire-1_0.ogg`, `death_pain_grunts.wav`, `explosion_dull.flac`,
-`battleThemeA.mp3`) положите туда же. Затем запустите:
+`battleThemeA.mp3` и остальная музыка) положите туда же. Только часть банков: `--only=music,fire`. Затем запустите:
 
 ```bash
 python3 audio/tools/make_sounds.py <папка>
@@ -69,8 +71,8 @@ python3 audio/tools/make_sounds.py <папка>
 ```
 Scripts/CalabashSfx.cs    — банки звуков и пул источников
 Scripts/ZhdanSfx.cs       — звуки героя по событиям движения, боя и топлива
-Scripts/CalabashMusic.cs  — музыка, громче в бою
+Scripts/CalabashMusic.cs  — музыка: треки по имени с переходом, бой громче во время волны
 Editor/CalabashAudioSetup.cs — импорт, банки, подключение к сцене
-Sounds/                   — 87 звуков OGG (CC0), LICENSE.txt
+Sounds/                   — 92 звука OGG (CC0), LICENSE.txt
 tools/make_sounds.py      — сборка Sounds/ из скачанных архивов
 ```

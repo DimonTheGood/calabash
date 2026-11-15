@@ -39,11 +39,25 @@ namespace Calabash.Enemies
 
         public List<Wave> waves = new List<Wave>();
         public float firstWaveDelay = 4f;
+        [Tooltip("Начать волны сразу. Выключено — ждать Begin() (игру ведёт GameFlow из game/)")]
+        public bool autoStart = true;
+        [Tooltip("Смерть и победу показывает и обрабатывает кто-то другой (GameFlow): без «R — заново»")]
+        public bool externalFlow;
+        [Tooltip("Передышка не идёт, пока true (выбор улучшения)")]
+        public bool holdBreak;
         public float breakTime = 6f;
         [Tooltip("Топливо за пройденную волну")] public float waveReward = 25f;
         [Tooltip("Огонь прогорает во время волны, ед./с")] public float fuelDecayInWave = 1.2f;
+        [Tooltip("Множитель прогорания (улучшение «Медленное тление»)")] public float fuelDecayMultiplier = 1f;
 
-        public enum Phase { Intro, Fighting, Break, Victory, GameOver }
+        public enum Phase { Waiting, Intro, Fighting, Break, Victory, GameOver }
+
+        /// <summary>Волна отбита (номер с нуля).</summary>
+        public static event System.Action<int> WaveCleared;
+        /// <summary>Топливо кончилось.</summary>
+        public static event System.Action PlayerDied;
+        /// <summary>Убит финальный босс (или пройдены все волны).</summary>
+        public static event System.Action Victory;
         public Phase CurrentPhase { get; private set; }
         public int WaveIndex { get; private set; } = -1;
         public int WaveCount => waves.Count;
@@ -87,9 +101,17 @@ namespace Calabash.Enemies
             PlayerTarget.Find();
             fuel = PlayerTarget.Fuel;
             if (fuel != null) fuel.onEmpty.AddListener(OnFuelEmpty);
+            CurrentPhase = Phase.Waiting;
+            if (autoStart) Begin(0);
+        }
+
+        /// <summary>Начать волны с номера startWave (с нуля).</summary>
+        public void Begin(int startWave, string banner = "Защищайся, Ждан")
+        {
+            WaveIndex = Mathf.Clamp(startWave, 0, Mathf.Max(0, waves.Count - 1)) - 1;
             CurrentPhase = Phase.Intro;
             timer = firstWaveDelay;
-            Show("Защищайся, Ждан", 3f);
+            if (!string.IsNullOrEmpty(banner)) Show(banner, 3f);
         }
 
         public static List<Wave> DefaultWaves() => new List<Wave>
@@ -113,6 +135,7 @@ namespace Calabash.Enemies
             {
                 case Phase.Intro:
                 case Phase.Break:
+                    if (holdBreak && CurrentPhase == Phase.Break) timer = Mathf.Max(timer, 2f);
                     if (timer <= 0f) StartWave(WaveIndex + 1);
                     break;
                 case Phase.Fighting:
@@ -126,7 +149,7 @@ namespace Calabash.Enemies
                     break;
                 case Phase.Victory:
                 case Phase.GameOver:
-                    if (RestartPressed()) Restart();
+                    if (!externalFlow && RestartPressed()) Restart();
                     break;
             }
         }
@@ -159,8 +182,9 @@ namespace Calabash.Enemies
             foreach (var e in list) queue.Enqueue(e);
             CurrentPhase = Phase.Fighting;
             spawnTimer = 0f;
-            if (fuel != null) fuel.decayPerSecond = fuelDecayInWave;
+            if (fuel != null) fuel.decayPerSecond = fuelDecayInWave * fuelDecayMultiplier;
             CalabashMusic.Combat = true;
+            CalabashMusic.Play(w.executioners > 0 ? "boss" : "battle");
             Show($"Волна {i + 1}/{waves.Count}\n{w.title}", 2.5f);
             CalabashSfx.Play2D("explosion", 0.5f, 0.6f);
         }
@@ -173,14 +197,18 @@ namespace Calabash.Enemies
             CurrentPhase = Phase.Break;
             timer = breakTime;
             Show($"Волна {WaveIndex + 1} отбита\n+{waveReward:0} топлива", 2.5f);
+            WaveCleared?.Invoke(WaveIndex);
         }
 
         void Win()
         {
+            if (CurrentPhase == Phase.Victory) return;
             CurrentPhase = Phase.Victory;
+            queue.Clear();
             if (fuel != null) fuel.decayPerSecond = 0f;
             CalabashMusic.Combat = false;
             Show("", 0f);
+            Victory?.Invoke();
         }
 
         void OnFuelEmpty()
@@ -191,9 +219,15 @@ namespace Calabash.Enemies
             CalabashSfx.Play2D("fire_burst", 1f, 0.5f);
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
+            PlayerDied?.Invoke();
         }
 
-        void OnDied(Enemy e) => Kills++;
+        void OnDied(Enemy e)
+        {
+            Kills++;
+            // палач Корней — финальный босс: его смерть заканчивает игру
+            if (e.kind == EnemyKind.Executioner && WaveIndex == waves.Count - 1 && CurrentPhase == Phase.Fighting) Win();
+        }
 
         void Show(string text, float seconds) { Banner = text; BannerTimer = seconds; }
 
