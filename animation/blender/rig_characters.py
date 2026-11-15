@@ -30,7 +30,7 @@ OUT = next((a for a in argv if not a.startswith("--")), os.path.join(ROOT, "anim
 FP_ONLY = "--fp-arms" in argv
 ONLY = next((a.split("=", 1)[1].split(",") for a in argv if a.startswith("--only=")), None)
 PREVIEW = next((a.split("=", 1)[1] for a in argv if a.startswith("--preview=")), None)
-FIST = next((a.split("=", 1)[1] for a in argv if a.startswith("--fist=")), "base")     # see FIST_VARIANTS
+FIST = next((a.split("=", 1)[1] for a in argv if a.startswith("--fist=")), "charred")     # see FIST_VARIANTS
 FP_PREVIEW = next((a.split("=", 1)[1] for a in argv if a.startswith("--fp-preview=")), None)
 FPS = 30
 

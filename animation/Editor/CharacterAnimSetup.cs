@@ -304,6 +304,19 @@ namespace Calabash.Animation.EditorTools
             return mat;
         }
 
+        /// <summary>Светящийся уголь для трещин на руках: без освещения, яркий, не гаснет в ночи.</summary>
+        static Material EmberGlow()
+        {
+            string p = $"{RootFolder()}/Materials/M_EmberGlow.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(p);
+            if (mat != null) return mat;
+            ThirdPersonSetup.EnsureFolder($"{RootFolder()}/Materials");
+            mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            mat.SetColor("_BaseColor", new Color(1f, 0.55f, 0.16f));
+            AssetDatabase.CreateAsset(mat, p);
+            return mat;
+        }
+
         /// <summary>Руки в кадре: куски SM_Zhdan_FPArms под камерой + ZhdanArmsView, кубы-кулаки убираются.</summary>
         static void SetupArms(GameObject player, ZhdanCameraMode mode)
         {
@@ -335,8 +348,13 @@ namespace Calabash.Animation.EditorTools
                     for (int i = t.childCount - 1; i >= 0; i--) Object.DestroyImmediate(t.GetChild(i).gameObject);
 
             var rends = inst.GetComponentsInChildren<Renderer>();
+            Material ember = EmberGlow();
             foreach (var r in rends)
             {
+                var ms = r.sharedMaterials;                       // трещины-угли на обугленных руках светятся
+                for (int i = 0; i < ms.Length; i++)
+                    if (ms[i] != null && ms[i].name == "M_Ember") ms[i] = ember;
+                r.sharedMaterials = ms;
                 r.shadowCastingMode = ShadowCastingMode.Off;
                 r.enabled = !mode.thirdPerson;
             }
