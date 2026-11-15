@@ -9,9 +9,10 @@ using UnityEngine.SceneManagement;
 namespace Calabash.Game
 {
     /// <summary>
-    /// Ход игры в деревне: главное меню, комикс-вступление, обучение, пауза (Esc), настройки,
+    /// Ход игры в деревне: комикс-вступление (если нет катсцены казни), обучение, пауза (Esc), настройки,
     /// выбор улучшения после каждой волны, смерть → лимб, смерть палача Корнея → ад.
     /// Волны ведёт WaveDirector (enemies/), GameFlow только запускает их и слушает события.
+    /// Главное меню — отдельная сцена MainMenu (MainMenu.cs); деревня сразу начинает бой.
     /// </summary>
     [DefaultExecutionOrder(-40)]
     public class GameFlow : MonoBehaviour
@@ -19,6 +20,7 @@ namespace Calabash.Game
         public const string VillageScene = "VillageTest";
         public const string AfterlifeScene = "Afterlife";
         public const string ExecutionScene = "Execution";
+        public const string MenuScene = MainMenu.SceneName;
 
         [System.Serializable]
         public class Slide
@@ -30,7 +32,7 @@ namespace Calabash.Game
         [Tooltip("Комикс-вступление: картинка и подпись")]
         public List<Slide> intro = new List<Slide>();
 
-        enum Mode { Menu, Settings, Intro, Playing, Paused, Upgrade, Dying, Won }
+        enum Mode { Playing, Settings, Intro, Paused, Upgrade, Dying, Won }
         Mode mode;
         Mode settingsReturn;
         WaveDirector director;
@@ -78,12 +80,10 @@ namespace Calabash.Game
             }
             GameSettings.Apply();
 
-            if (GameProgress.SkipMenuOnce)
-            {
-                GameProgress.SkipMenuOnce = false;
-                Begin();
-            }
-            else ShowMenu();
+            // без катсцены казни новая игра начинается с комикса
+            if (!GameProgress.Current.introSeen && intro.Count > 0 && !Application.CanStreamedLevelBeLoaded(ExecutionScene))
+                StartComic();
+            else Begin();
         }
 
         void OnDestroy()
@@ -95,19 +95,9 @@ namespace Calabash.Game
         }
 
         // ------------------------------------------------------------------ состояния
-        void ShowMenu()
+        void StartComic()
         {
-            mode = Mode.Menu;
             SetControl(false);
-            CalabashMusic.Play("menu");
-        }
-
-        void NewGame()
-        {
-            GameProgress.Reset();
-            Upgrades.ApplyAll(player);
-            // вступление — катсцена казни на движке; без неё — комикс из картинок
-            if (Application.CanStreamedLevelBeLoaded(ExecutionScene)) { Load(ExecutionScene); return; }
             mode = Mode.Intro;
             slide = 0;
             slideTime = 0f;
@@ -303,8 +293,7 @@ namespace Calabash.Game
             float w = Screen.width, h = Screen.height, s = Ui.S;
             switch (mode)
             {
-                case Mode.Menu: DrawMenu(w, h, s); break;
-                case Mode.Settings: DrawSettings(w, h, s); break;
+                case Mode.Settings: GameSettings.DrawPanel(w, h, s, CloseSettings); break;
                 case Mode.Intro: DrawIntro(w, h, s); break;
                 case Mode.Paused: DrawPause(w, h, s); break;
                 case Mode.Upgrade: DrawUpgrade(w, h, s); break;
@@ -320,45 +309,6 @@ namespace Calabash.Game
             if (fade > 0f) Ui.Shade(mode == Mode.Dying ? Color.white : Color.black, fade);
         }
 
-        void DrawMenu(float w, float h, float s)
-        {
-            Ui.Shade(Color.black, 0.35f);
-            Ui.Fill(new Rect(0, h * 0.16f, w, 190 * s), new Color(0, 0, 0, 0.88f));
-            GUI.Label(new Rect(0, h * 0.16f, w, 140 * s), "ЖДАН", Ui.Title(110, Ui.Paper));
-            GUI.Label(new Rect(0, h * 0.16f + 125 * s, w, 50 * s), "его хотели сжечь", Ui.Title(26, Ui.Fire));
-
-            float bw = 360 * s, bh = 62 * s, x = w * 0.5f - bw * 0.5f, y = h * 0.16f + 230 * s;
-            var p = GameProgress.Current;
-            if (GameProgress.CanContinue)
-            {
-                if (Ui.Button(new Rect(x, y, bw, bh), $"Продолжить · волна {p.wave + 1}")) Begin();
-                y += bh + 16 * s;
-            }
-            if (Ui.Button(new Rect(x, y, bw, bh), "Новая игра")) NewGame();
-            y += bh + 16 * s;
-            if (Ui.Button(new Rect(x, y, bw, bh), "Настройки")) OpenSettings();
-            y += bh + 16 * s;
-            if (Ui.Button(new Rect(x, y, bw, bh), "Выход")) Quit();
-            y += bh + 24 * s;
-            if (p.bestWave > 0 || p.deaths > 0)
-                GUI.Label(new Rect(0, y, w, 30 * s), $"лучшее: волна {Mathf.Max(p.bestWave, p.wave) + 1} · смертей: {p.deaths}", Ui.Text(20, Ui.Paper, TextAnchor.MiddleCenter));
-        }
-
-        void DrawSettings(float w, float h, float s)
-        {
-            Ui.Shade(Ui.Paper, 0.7f);
-            var r = new Rect(w * 0.5f - 300 * s, h * 0.5f - 210 * s, 600 * s, 420 * s);
-            Ui.Panel(r);
-            GUI.Label(new Rect(r.x, r.y + 16 * s, r.width, 50 * s), "Настройки", Ui.Title(36, Ui.Ink));
-            float x = r.x + 40 * s, cw = r.width - 80 * s, y = r.y + 90 * s, rh = 46 * s;
-            GameSettings.Volume = Ui.Slider(new Rect(x, y, cw, rh), "Громкость", GameSettings.Volume, 0f, 1f); y += rh + 10 * s;
-            GameSettings.Music = Ui.Slider(new Rect(x, y, cw, rh), "Музыка", GameSettings.Music, 0f, 1f); y += rh + 10 * s;
-            GameSettings.Sensitivity = Ui.Slider(new Rect(x, y, cw, rh), "Мышь", GameSettings.Sensitivity, 0.2f, 3f); y += rh + 10 * s;
-            if (Ui.Button(new Rect(x, y, cw, rh), GameSettings.Gloom ? "Манга-фильтр: вкл" : "Манга-фильтр: выкл")) GameSettings.Gloom = !GameSettings.Gloom;
-            GameSettings.Apply();
-            if (Ui.Button(new Rect(r.x + r.width * 0.5f - 120 * s, r.yMax - 70 * s, 240 * s, 52 * s), "Готово")) CloseSettings();
-        }
-
         void DrawPause(float w, float h, float s)
         {
             Ui.Shade(Ui.Paper, 0.6f);
@@ -371,7 +321,7 @@ namespace Calabash.Game
             if (Ui.Button(new Rect(x, y, bw, bh), "В главное меню"))
             {
                 GameProgress.Save();
-                Load(VillageScene);
+                Load(MenuScene);
             }
             y += bh + 14 * s;
             if (Ui.Button(new Rect(x, y, bw, bh), "Выход")) Quit();

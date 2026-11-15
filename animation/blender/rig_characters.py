@@ -5,6 +5,7 @@ read, never changed): its functions are loaded, every character is built again, 
 the builder computes (skeleton() -> J) become the bones. So the rig matches every body exactly.
 
     blender -b --factory-startup -P animation/blender/rig_characters.py -- [out dir] [--only=hero,peasant] [--preview=dir] [--fp-arms]
+        [--fist=base|wrapped|charred|brawler|bound] [--fp-preview=dir]
 
 Output (default out dir: animation/):
   fbx/SK_Char_<id>.fbx   armature "Rig" + skinned mesh "Body" + all clips (one FBX take per clip)
@@ -29,6 +30,8 @@ OUT = next((a for a in argv if not a.startswith("--")), os.path.join(ROOT, "anim
 FP_ONLY = "--fp-arms" in argv
 ONLY = next((a.split("=", 1)[1].split(",") for a in argv if a.startswith("--only=")), None)
 PREVIEW = next((a.split("=", 1)[1] for a in argv if a.startswith("--preview=")), None)
+FIST = next((a.split("=", 1)[1] for a in argv if a.startswith("--fist=")), "base")     # see FIST_VARIANTS
+FP_PREVIEW = next((a.split("=", 1)[1] for a in argv if a.startswith("--fp-preview=")), None)
 FPS = 30
 
 # ---------------------------------------------------------------------------------------------------
@@ -731,13 +734,118 @@ def knuckles(J, P, s, curl, mat):
     tube([(a + b) / 2 for a, b in rows], [fr * 1.1] * 4, mat, n=8)
 
 
-def build_fp_arms(P, coll):
+FIST_VARIANTS = {
+    "base": "clenched sooty fist (the original)",
+    "wrapped": "fists and wrists wrapped in linen strips, like a fist fighter",
+    "charred": "burnt black skin with glowing ember cracks",
+    "brawler": "big square fists with heavy knuckles and thick wrists",
+    "bound": "rope from the stake still knotted around the wrists, frayed ends",
+}
+
+
+def slice_ellipse(ob, z, dz=0.008):
+    """Centre and half extents (x, y) of the mesh near height z: to wrap rings around a fused surface."""
+    pts = [v.co for v in ob.data.vertices if abs(v.co.z - z) < dz]
+    if len(pts) < 4:
+        return None
+    x0, x1 = min(p.x for p in pts), max(p.x for p in pts)
+    y0, y1 = min(p.y for p in pts), max(p.y for p in pts)
+    return V(((x0 + x1) / 2, (y0 + y1) / 2, z)), (x1 - x0) / 2, (y1 - y0) / 2
+
+
+def helix(ob, z0, z1, turns, grow, r, mat, a0=0.0):
+    """One strip wound around a fused piece from z0 to z1 (a bandage or a rope)."""
+    pts = []; n = int(turns * 14) + 1
+    for i in range(n):
+        f = i / (n - 1); z = z0 + (z1 - z0) * f
+        e = slice_ellipse(ob, z)
+        if e is None:
+            continue
+        c, rx, ry = e; a = a0 + f * turns * 2 * math.pi
+        pts.append(c + V(((rx + grow) * math.cos(a), (ry + grow) * math.sin(a), 0.004 * math.sin(a * 0.5))))
+    if len(pts) > 2:
+        tube(pts, [r] * len(pts), mat, n=6)
+
+
+def wraps(ob, zs, grow, r, mat):
+    """Flat-ish bands around a fused piece at the given heights (linen strips, rope coils)."""
+    for z in zs:
+        e = slice_ellipse(ob, z)
+        if e is None:
+            continue
+        c, rx, ry = e
+        B["rope_ring"](c, rx + grow, ry + grow, r, mat, n=14)
+
+
+def join_into(main, extra):
+    if extra is None:
+        return main
+    parts = [main, extra]
+    with bpy.context.temp_override(active_object=main, selected_editable_objects=parts, selected_objects=parts):
+        bpy.ops.object.join()
+    return main
+
+
+def ember_cracks(ob, seeds, steps, seed):
+    """Paints jagged one-face-wide streaks of M_Ember into a fused mesh: cracks in burnt skin."""
+    import bmesh, random
+    rnd = random.Random(seed)
+    me = ob.data
+    if "M_Ember" not in [m.name for m in me.materials]:
+        me.materials.append(mats["M_Ember"])
+    ei = [m.name for m in me.materials].index("M_Ember")
+    bm = bmesh.new(); bm.from_mesh(me); bm.faces.ensure_lookup_table()
+    faces = list(bm.faces)
+    for _ in range(seeds):
+        f = rnd.choice(faces)
+        d = V((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))).normalized()
+        for _ in range(steps):
+            f.material_index = ei
+            nb = [g for e in f.edges for g in e.link_faces if g is not f]
+            if not nb:
+                break
+            c = f.calc_center_median()
+            f = max(nb, key=lambda g: (g.calc_center_median() - c).normalized().dot(d) + rnd.uniform(-0.6, 0.6))
+            d = (d + V((rnd.uniform(-0.5, 0.5), rnd.uniform(-0.5, 0.5), rnd.uniform(-0.5, 0.5)))).normalized()
+    bm.to_mesh(me); bm.free()
+
+
+def solid_fist(s, k, mat, square=False):
+    """A closed fist built finger by finger (hand() leaves a claw-like shape with the thumb sticking out):
+    the palm, four fingers folded into it and the thumb pressed across the index and middle fingers.
+    Wrist at the origin, the hand along -Z, palm towards -s*X (inwards), thumb on the -Y side."""
+    d, pn, ac = V((0, 0, -1)), V((-s, 0, 0)), V((0, -1, 0))
+    pl, w, t, fr = 0.052 * k, 0.078 * k, 0.03 * k, 0.0105 * k
+    blob(V((s * t * 0.1, 0, -pl * 0.5)), w * 0.52, mat, n=12, k=6, sq=(t / w * 1.7, 1.0, 1.05))
+    for i, L in enumerate((1.0, 1.06, 1.0, 0.86)):
+        y = -w / 2 + w * (i + 0.5) / 4
+        r = fr * (1.0 if i < 3 else 0.88)
+        p0 = V((s * t * 0.12, 0, -pl)) + ac * -y          # knuckle
+        p1 = p0 + d * 0.026 * L * k + pn * 0.004 * k
+        p2 = p1 + pn * 0.03 * L * k + d * 0.003 * k
+        p3 = p2 - d * 0.02 * L * k + pn * 0.002 * k
+        tube([p0 - d * 0.004, p1, p2, p3], [r * 1.05, r, r * 0.95, r * 0.85], mat, n=8)
+        if square:                                        # a flat, heavy knuckle
+            blob(p0 + d * 0.004 + V((s * r * 0.3, 0, 0)), r * 1.25, mat, n=8, k=4, sq=(1.1, 0.95, 0.8))
+    tb = V((-s * t * 0.35, -w * 0.5, -pl * 0.25))
+    tube([tb, tb + V((-s * 0.016 * k, -0.006 * k, -0.024 * k)),
+          V((-s * (t * 0.5 + 0.028 * k), -w * 0.2, -pl - 0.022 * k)),
+          V((-s * (t * 0.5 + 0.026 * k), w * 0.08, -pl - 0.028 * k))],
+         [fr * 1.45, fr * 1.3, fr * 1.15, fr * 0.95], mat, n=8)
+
+
+def build_fp_arms(P, coll, variant="base"):
     """Zhdan's arms for the first-person view, cut into rigid pieces for a 2-bone IK in Unity.
-    Each piece hangs along -Z from its joint at the origin; the front of the arm faces -Y."""
-    m = P["m"]; ar, ua, fa = P["arm_r"], P["upper"], P["fore"]
+    Each piece hangs along -Z from its joint at the origin; the front of the arm faces -Y.
+    variant: one of FIST_VARIANTS (changes the forearm end and the fist)."""
+    m = dict(P["m"]); ar, ua, fa = P["arm_r"], P["upper"], P["fore"]
+    if variant == "charred":
+        m["hand"] = "M_Char"
     old = B["BODY_TRIS"]; B["BODY_TRIS"] = 3500
     obs = []
     O = V((0, 0, 0))
+    fist_k = 1.28 if variant == "brawler" else 1.0
+    wrist_k = 1.18 if variant == "brawler" else 1.0
     for s, x in SIDES:
         E1 = V((0, 0, -ua))
         with layer(BODY):
@@ -746,21 +854,82 @@ def build_fp_arms(P, coll):
             blob(E1, ar * 0.86, B["side_mat"](m["upper"], s), n=12, k=6)
         obs.append(B["emit_smooth"](f"FP_UpperArm.{x}", coll, mats, BODY))
         W = V((0, 0, -fa))
+        fore_end = "M_Char" if variant == "charred" else m["fore"]
         with layer(BODY):
             tube([lerp(O, W, f) + V((s * ar * o, 0, 0)) for f, o in ((0.0, 0.0), (0.22, 0.18), (0.55, 0.1), (1.0, 0.0))],
-                 [ar * 0.82, ar * 0.92, ar * 0.72, ar * 0.55], B["side_mat"](m["fore"], s), n=12)
-        obs.append(B["emit_smooth"](f"FP_Forearm.{x}", coll, mats, BODY))
+                 [ar * 0.82, ar * 0.92, ar * 0.72 * wrist_k, ar * 0.55 * wrist_k], B["side_mat"](m["fore"], s), n=12)
+            if variant == "charred":            # the sleeve burnt away: bare charred wrist below it
+                tube([lerp(O, W, 0.55), W], [ar * 0.74, ar * 0.57], B["side_mat"](fore_end, s), n=12)
+        fore = B["emit_smooth"](f"FP_Forearm.{x}", coll, mats, BODY)
+        with layer(GEO):
+            if variant == "wrapped":
+                helix(fore, -fa * 0.5, -fa * 0.99, 6.5, 0.003, (0.0055, 0.003), "M_Linen")
+            elif variant == "bound":
+                helix(fore, -fa * 0.76, -fa * 0.94, 3.2, 0.006, 0.0075, "M_Wood")
+                end = V((s * ar * 0.6, -ar * 0.7, -fa * 0.86))
+                for i, (dx, dz) in enumerate(((0.0, 0.0), (0.012, 0.01))):      # two frayed loose ends
+                    a = end + V((s * dx, 0, dz))
+                    pts = [a, a + V((s * 0.02, -0.025, 0.03)), a + V((s * 0.035, -0.03, 0.075 + i * 0.02))]
+                    tube(pts, [0.008, 0.007, 0.004], "M_Wood", n=5)
+            elif variant == "brawler":
+                wraps(fore, [-fa * k for k in (0.9, 0.96)], 0.004, 0.006, "M_Dark")
+        if variant == "charred":
+            ember_cracks(fore, 4, 12, 11 + s)
+        obs.append(join_into(fore, B["emit"](f"FP_ForearmGear.{x}", coll, mats, GEO)))
         J = {("wr", s): V((0, 0, 0)), ("hd", s): V((0, 0, -1))}
         PF = dict(P); PF["spread"] = 0.03; PF["finger_r"] = P["finger_r"] * 1.35      # a clenched fist
+        hm = B["side_mat"](m["hand"], s)
         with layer(BODY):
-            hand(J, PF, s, curl=1.75)
-            knuckles(J, PF, s, 1.75, B["side_mat"](m["hand"], s))
-            blob(V((0, 0, -0.012)), ar * 0.74, B["side_mat"](m["hand"], s), n=12, k=6)     # closes the palm/wrist gap
-        obs.append(B["emit_smooth"](f"FP_Fist.{x}", coll, mats, BODY))
+            if variant == "base":
+                hand(J, PF, s, curl=1.75, mat=hm)
+                knuckles(J, PF, s, 1.75, hm)
+            else:
+                solid_fist(s, fist_k, hm, square=variant == "brawler")
+            blob(V((0, 0, -0.012)), ar * 0.74 * wrist_k, hm, n=12, k=6)     # closes the palm/wrist gap
+        fist = B["emit_smooth"](f"FP_Fist.{x}", coll, mats, BODY)
+        with layer(GEO):
+            if variant == "wrapped":            # strips over the palm and across the knuckles
+                helix(fist, 0.0, -0.05, 3.2, 0.002, (0.006, 0.0028), "M_Linen", a0=1.0)
+            elif variant == "bound":
+                helix(fist, 0.012, -0.004, 1.5, 0.004, 0.0075, "M_Wood")
+        if variant == "charred":
+            ember_cracks(fist, 9, 10, 31 + s)
+        obs.append(join_into(fist, B["emit"](f"FP_FistGear.{x}", coll, mats, GEO)))
     B["BODY_TRIS"] = old
     for o in obs:
         o.data.name = o.name
     return obs
+
+
+def fp_preview(obs, folder, variant):
+    """Two stills of the first-person arms: the player's view of both fists raised, and a close-up."""
+    os.makedirs(folder, exist_ok=True)
+    by = {o.name: o for o in obs}
+    for s, x in SIDES:
+        fore, fist = by[f"FP_Forearm.{x}"], by[f"FP_Fist.{x}"]
+        fist.parent = fore; fist.location = (0, 0, -P["fore"])
+        fore.location = (s * 0.15, 0.02, -0.25)
+        fore.rotation_euler = (math.radians(-106), math.radians(s * 10), math.radians(s * 12))
+        by[f"FP_UpperArm.{x}"].hide_render = True
+    SC.render.engine = "BLENDER_WORKBENCH"
+    sh = SC.display.shading
+    sh.light = "STUDIO"; sh.color_type = "MATERIAL"; sh.show_cavity = True; sh.cavity_type = "BOTH"
+    sh.show_object_outline = True; sh.object_outline_color = (0, 0, 0)
+    SC.world = SC.world or bpy.data.worlds.new("W"); SC.world.color = (0.03, 0.03, 0.04)
+    SC.render.resolution_x, SC.render.resolution_y = 640, 400
+    cd = bpy.data.cameras.new("FPCam"); cd.lens = 18
+    cam = bpy.data.objects.new("FPCam", cd); SC.collection.objects.link(cam); SC.camera = cam
+    def look(at):
+        cam.rotation_euler = (V(at) - cam.location).to_track_quat("-Z", "Y").to_euler()
+    cam.location = (0, 0.05, 0); look((0, -1, -0.16))
+    SC.render.filepath = os.path.join(folder, f"fist_{variant}_fp.png")
+    bpy.ops.render.render(write_still=True)
+    cd.lens = 50
+    bpy.context.view_layer.update()
+    tip = by["FP_Fist.R"].matrix_world.translation
+    cam.location = tip + V((-0.16, 0.2, 0.14)); look(tip + V((0.0, -0.03, 0.0)))
+    SC.render.filepath = os.path.join(folder, f"fist_{variant}_close.png")
+    bpy.ops.render.render(write_still=True)
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -826,9 +995,12 @@ if FP_ONLY:                                          # only the first-person arm
     P, _ = BUILDERS["hero"]()
     for d in (GEO, GLOW, BODY, CLOTH):
         d.clear()
-    fp = build_fp_arms(P, B["collection"]("SM_FPArms"))
-    export_static(os.path.join(OUT, "fbx", "SM_Zhdan_FPArms.fbx"), fp)
-    print("[fbx] SM_Zhdan_FPArms.fbx")
+    fp = build_fp_arms(P, B["collection"]("SM_FPArms"), FIST)
+    if FP_PREVIEW:
+        fp_preview(fp, FP_PREVIEW, FIST)
+    else:
+        export_static(os.path.join(OUT, "fbx", "SM_Zhdan_FPArms.fbx"), fp)
+        print(f"[fbx] SM_Zhdan_FPArms.fbx ({FIST})")
 for cid in ([] if FP_ONLY else BUILDERS):
     if ONLY and cid not in ONLY:
         continue
@@ -840,7 +1012,7 @@ for cid in ([] if FP_ONLY else BUILDERS):
     if PREVIEW:
         preview(cid, rig, mesh, acts, PREVIEW)
     if cid == "hero":
-        fp = build_fp_arms(P, coll)
+        fp = build_fp_arms(P, coll, FIST)
         export_static(os.path.join(OUT, "fbx", "SM_Zhdan_FPArms.fbx"), fp)
         print("[fbx] SM_Zhdan_FPArms.fbx")
     for o in list(coll.objects):                     # free memory before the next character

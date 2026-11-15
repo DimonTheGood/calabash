@@ -191,7 +191,7 @@ namespace Calabash.Game.EditorTools
         }
 
         /// <summary>Ближайшее свободное место (по спирали до maxR м), иначе само p.</summary>
-        static Vector3 Free(Vector3 p, float maxR)
+        internal static Vector3 Free(Vector3 p, float maxR)
         {
             if (VillageSceneBuilder.IsFree(p)) return p;
             for (float r = 0.6f; r <= maxR; r += 0.6f)
@@ -204,7 +204,7 @@ namespace Calabash.Game.EditorTools
         }
 
         // ------------------------------------------------------------------ реквизит
-        static Transform BuildPyre(Transform parent, Vector3 p, Material wood)
+        internal static Transform BuildPyre(Transform parent, Vector3 p, Material wood)
         {
             var root = new GameObject("Pyre").transform;
             root.SetParent(parent, false);
@@ -320,7 +320,7 @@ namespace Calabash.Game.EditorTools
         }
 
         /// <summary>Жаровня на треноге: чаша с огнём и дрожащий свет.</summary>
-        static void Brazier(Transform parent, Vector3 p, Material metal, Material flame)
+        internal static void Brazier(Transform parent, Vector3 p, Material metal, Material flame)
         {
             var root = new GameObject("Brazier").transform;
             root.SetParent(parent, false);
@@ -379,7 +379,7 @@ namespace Calabash.Game.EditorTools
         }
 
         // ------------------------------------------------------------------ огонь костра
-        static ParticleSystem Flames(Transform parent, Vector3 p, Material m)
+        internal static ParticleSystem Flames(Transform parent, Vector3 p, Material m)
         {
             var ps = NewPs(parent, "PyreFire", p + Vector3.up * 0.3f);
             var main = ps.main;
@@ -395,7 +395,7 @@ namespace Calabash.Game.EditorTools
             return ps;
         }
 
-        static ParticleSystem Embers(Transform parent, Vector3 p, Material m)
+        internal static ParticleSystem Embers(Transform parent, Vector3 p, Material m)
         {
             var ps = NewPs(parent, "PyreEmbers", p + Vector3.up * 1f);
             var main = ps.main;
@@ -411,7 +411,7 @@ namespace Calabash.Game.EditorTools
             return ps;
         }
 
-        static ParticleSystem Smoke(Transform parent, Vector3 p, Material m)
+        internal static ParticleSystem Smoke(Transform parent, Vector3 p, Material m)
         {
             var ps = NewPs(parent, "PyreSmoke", p + Vector3.up * 3f);
             var main = ps.main;
@@ -478,7 +478,7 @@ namespace Calabash.Game.EditorTools
             return null;
         }
 
-        static AudioClip FindClip(string name)
+        internal static AudioClip FindClip(string name)
         {
             foreach (string guid in AssetDatabase.FindAssets($"{name} t:AudioClip"))
                 return AssetDatabase.LoadAssetAtPath<AudioClip>(AssetDatabase.GUIDToAssetPath(guid));

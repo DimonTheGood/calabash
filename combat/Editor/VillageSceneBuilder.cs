@@ -141,7 +141,7 @@ namespace Calabash.Combat.EditorTools
             var area = new Bounds(map.transform.position, Vector3.zero);
             foreach (var r in map.GetComponentsInChildren<Renderer>()) area.Encapsulate(r.bounds);
             Calabash.Enemies.EditorTools.EnemySetup.Setup(area, new[] { "Road", "Street" });
-            // ход игры: меню, комикс, пауза, улучшения, смерть → лимб (game/)
+            // ход игры: комикс, пауза, улучшения, смерть → лимб (game/)
             Calabash.Game.EditorTools.GameSetup.SetupVillage();
 
             string scenePath = $"{root}/Scenes/VillageTest.unity";
@@ -152,6 +152,8 @@ namespace Calabash.Combat.EditorTools
             Calabash.Game.EditorTools.GameSetup.BuildAfterlife();
             // катсцена казни на костре — третья сцена (game/)
             Calabash.Game.EditorTools.CutsceneSetup.BuildExecution();
+            // главное меню — отдельная сцена, первая в билде (game/)
+            Calabash.Game.EditorTools.MenuSetup.BuildMenu();
             return scenePath;
         }
 
