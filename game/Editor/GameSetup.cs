@@ -47,6 +47,8 @@ namespace Calabash.Game.EditorTools
             FixTextures();
             // отладочный HUD движения (скорость, клавиши) в игре скрыт; F1 показывает его снова
             foreach (var mh in Object.FindObjectsByType<MovementHud>(FindObjectsInactive.Include)) mh.visible = false;
+            // подсказка по клавишам в игре не нужна: её заменяет обучение GameFlow
+            foreach (var ch in Object.FindObjectsByType<Calabash.Combat.CombatHud>(FindObjectsInactive.Include)) ch.showHelp = false;
             // темп и сложность игры: Ждан тяжелее, огонь прогорает быстрее
             foreach (var mv in Object.FindObjectsByType<ZhdanMovement>(FindObjectsInactive.Include)) GameBalance.Apply(mv.gameObject);
             var flow = new GameObject("Game").AddComponent<GameFlow>();
