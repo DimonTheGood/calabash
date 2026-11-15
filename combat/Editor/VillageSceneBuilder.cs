@@ -159,6 +159,7 @@ namespace Calabash.Combat.EditorTools
             var respawn = player.GetComponent<TestRespawn>();
             if (respawn != null) respawn.killY = -20f;
             AddSnow(player.transform, root);
+            Calabash.Audio.EditorTools.CalabashAudioSetup.Setup(player);   // звук ударов, шагов, огня, музыка (audio/)
 
             string scenePath = $"{root}/Scenes/VillageTest.unity";
             EditorSceneManager.SaveScene(scene, scenePath);

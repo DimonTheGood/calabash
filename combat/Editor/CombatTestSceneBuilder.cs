@@ -92,6 +92,7 @@ namespace Calabash.Combat.EditorTools
             Calabash.Animation.EditorTools.CharacterAnimSetup.BeginBuild();
             Calabash.Animation.EditorTools.CharacterAnimSetup.SetupHero(player);
             Calabash.Vfx.EditorTools.ZhdanFireSetup.Setup(player);      // огонь: тело, кулаки, удары, слэм
+            Calabash.Audio.EditorTools.CalabashAudioSetup.Setup(player);         // звук ударов, шагов, огня
             player.transform.SetPositionAndRotation(new Vector3(6f, 0.05f, -8f), Quaternion.Euler(0, 140f, 0));
             PrefabUtility.SaveAsPrefabAssetAndConnect(player, $"{root}/Prefabs/Zhdan_FPS_Combat.prefab", InteractionMode.AutomatedAction);
 
