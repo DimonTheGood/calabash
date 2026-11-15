@@ -96,6 +96,10 @@ namespace Calabash.Enemies
         float lastHitTime = -10f;
         float burnTimer;
         ParticleSystem burnFx;
+        Light burnLight;
+        float burnSeed;
+        /// <summary>Ночью горящий враг светит сам — освещает улицу вокруг себя.</summary>
+        [Tooltip("Яркость света от горящего врага")] public float burnLightIntensity = 9f;
         /// <summary>Горит ли сейчас.</summary>
         public bool Burning => burnTimer > 0f;
         string anim;
@@ -177,6 +181,16 @@ namespace Calabash.Enemies
             if (burnFx != null && !burnFx.isPlaying) burnFx.Play();
         }
 
+        void BurnLight(float dt)
+        {
+            if (burnLight == null) return;
+            float target = burnFx != null && burnFx.isEmitting
+                ? burnLightIntensity * (0.75f + 0.5f * Mathf.PerlinNoise(Time.time * 9f, burnSeed))
+                : 0f;
+            burnLight.intensity = Mathf.MoveTowards(burnLight.intensity, target, dt * 10f);
+            burnLight.enabled = burnLight.intensity > 0.01f;
+        }
+
         void BurnTick(float dt)
         {
             if (burnTimer <= 0f) return;
@@ -220,6 +234,14 @@ namespace Calabash.Enemies
             var r = go.GetComponent<ParticleSystemRenderer>();
             r.sharedMaterial = burnMaterial;
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            burnSeed = Random.value * 100f;
+            burnLight = go.AddComponent<Light>();
+            burnLight.type = LightType.Point;
+            burnLight.color = new Color(1f, 0.7f, 0.45f);
+            burnLight.range = 7f;
+            burnLight.intensity = 0f;
+            burnLight.shadows = LightShadows.None;
+            burnLight.enabled = false;
             return ps;
         }
 
@@ -265,6 +287,7 @@ namespace Calabash.Enemies
             repathTimer -= dt;
             Vector3 move = Vector3.zero;
             BurnTick(dt);
+            BurnLight(dt);
             if (state == State.Dead && burnFx != null && burnTimer <= 0f && timer < 2f) burnFx.Stop(true, ParticleSystemStopBehavior.StopEmitting);
             bool playerOk = PlayerTarget.Alive;
             Vector3 toPlayer = Flat(PlayerTarget.Position - transform.position);

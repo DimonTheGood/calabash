@@ -319,7 +319,7 @@ namespace Calabash.Game
 
         void DrawMenu(float w, float h, float s)
         {
-            Ui.Shade(Ui.Paper, 0.55f);
+            Ui.Shade(Color.black, 0.35f);
             Ui.Fill(new Rect(0, h * 0.16f, w, 190 * s), new Color(0, 0, 0, 0.88f));
             GUI.Label(new Rect(0, h * 0.16f, w, 140 * s), "ЖДАН", Ui.Title(110, Ui.Paper));
             GUI.Label(new Rect(0, h * 0.16f + 125 * s, w, 50 * s), "его хотели сжечь", Ui.Title(26, Ui.Fire));
@@ -338,7 +338,7 @@ namespace Calabash.Game
             if (Ui.Button(new Rect(x, y, bw, bh), "Выход")) Quit();
             y += bh + 24 * s;
             if (p.bestWave > 0 || p.deaths > 0)
-                GUI.Label(new Rect(0, y, w, 30 * s), $"лучшее: волна {Mathf.Max(p.bestWave, p.wave) + 1} · смертей: {p.deaths}", Ui.Text(20, Ui.Ink, TextAnchor.MiddleCenter));
+                GUI.Label(new Rect(0, y, w, 30 * s), $"лучшее: волна {Mathf.Max(p.bestWave, p.wave) + 1} · смертей: {p.deaths}", Ui.Text(20, Ui.Paper, TextAnchor.MiddleCenter));
         }
 
         void DrawSettings(float w, float h, float s)

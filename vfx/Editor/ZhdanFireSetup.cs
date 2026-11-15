@@ -43,6 +43,11 @@ namespace Calabash.Vfx.EditorTools
             fx.combat = player.GetComponent<ZhdanCombat>();
             fx.fuel = player.GetComponent<ZhdanFuel>();
             fx.cameraMode = player.GetComponent<ZhdanCameraMode>();
+            // огонь светит: ночью Ждан — главный источник света
+            var lamp = player.GetComponent<ZhdanFireLight>();
+            if (lamp == null) lamp = player.AddComponent<ZhdanFireLight>();
+            lamp.fuel = fx.fuel;
+            lamp.fx = fx;
 
             fx.flameFlipbook = Mat("M_FX_Flame", "T_Flame03_16x4");
             fx.smallFlameFlipbook = Mat("M_FX_SmallFlame", "T_SmallFlame01_16x4");

@@ -83,6 +83,7 @@ namespace Calabash.Vfx
         float accFlame, accEmber, accSmoke, accFist, accRun, accDash, accFistEmber, accHead, accLick, accFistLick;
         Vector3 lastPos;
         bool built;
+        ZhdanFireLight fireLight;
         Transform fxRoot;
         public Transform FxRoot => fxRoot;
 
@@ -93,6 +94,7 @@ namespace Calabash.Vfx
             if (combat == null) combat = GetComponentInParent<ZhdanCombat>();
             if (fuel == null) fuel = GetComponentInParent<ZhdanFuel>();
             if (cameraMode == null) cameraMode = GetComponentInParent<ZhdanCameraMode>();
+            if (fireLight == null) fireLight = GetComponent<ZhdanFireLight>();
             Build();
         }
 
@@ -413,6 +415,7 @@ namespace Calabash.Vfx
 
         void OnKill()
         {
+            if (fireLight != null) fireLight.Flare(1.3f);
             Vector3 p = combat.LastHitPoint;
             FireFx.Burst(hitFire, p, 18, Vector3.up * 6f, 5f, 0.8f, 1.4f * blastScale);                 // столб огня
             FireFx.Burst(hitTongues, p, 20, Vector3.up * 5f, 6f, 0.7f, 1.5f);
@@ -438,6 +441,7 @@ namespace Calabash.Vfx
         public void Impact(Vector3 p, Vector3 dir, float k)
         {
             if (!built) return;
+            if (fireLight != null) fireLight.Flare(k);
             dir = dir.sqrMagnitude > 0.001f ? dir.normalized : transform.forward;
             float b = k * blastScale;
             FireFx.Burst(hitBurst, p, 1, Vector3.zero, 0f, 0f, b);
@@ -486,6 +490,7 @@ namespace Calabash.Vfx
         /// <summary>Огонь удара оземь: кольцо по радиусу волны, языки по земле, искры, дым, выжженное пятно.</summary>
         public void SlamFx(float height)
         {
+            if (fireLight != null) fireLight.Flare(1.6f);
             float radius = combat != null ? combat.SlamWaveRadius(height) : 3f;
             Vector3 c = transform.position;
             // кольцо по радиусу волны
