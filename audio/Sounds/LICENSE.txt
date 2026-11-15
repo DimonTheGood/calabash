@@ -1,0 +1,44 @@
+Звуки в этой папке собраны скриптом audio/tools/make_sounds.py из бесплатных ассетов OpenGameArt
+с лицензией CC0 1.0 (общественное достояние): https://creativecommons.org/publicdomain/zero/1.0/
+Скрипт переводит их в моно 44,1 кГц, обрезает тишину, выравнивает громкость и пересохраняет в OGG.
+
+1. Independent.nu / qubodup — 37 hits/punches (CC0)
+   https://opengameart.org/content/37-hitspunches  (independent_nu_ljudbank-hits_and_punches.7z)
+   → punch_light_*, punch_heavy_*, hurt_hit_*
+
+2. artisticdude — Swishes Sound Pack (CC0)
+   https://opengameart.org/content/swishes-sound-pack  (swishes.zip)
+   → swing_*
+
+3. Corsica_S, нарезка Iwan Gabovitch (qubodup) — 42 snow and gravel footsteps (CC0)
+   https://opengameart.org/content/42-snow-and-gravel-footsteps  (corsica_s-walking_in_snow.7z)
+   → footstep_snow_*, land_*
+
+4. rubberduck — 40 CC0 water / splash / slime SFX (CC0)
+   https://opengameart.org/content/40-cc0-water-splash-slime-sfx  (water-splash-slime-sfx.zip)
+   → splash_*
+
+5. Kenney — 50 RPG sound effects (CC0), www.kenney.nl
+   https://opengameart.org/content/50-rpg-sound-effects  (RPGsounds_Kenney.zip)
+   → metal_clank_* (metalPot1-3), blade_* (knifeSlice), wood_hit_01 (chop),
+     bow_release_* (metalLatch, drawKnife2), cloth_* (cloth1-4)
+
+6. TheBardOfBlasphemy — Grunts: male death and pain (CC0)
+   https://opengameart.org/content/grunts-male-death-and-pain  (death pain grunts.wav)
+   Запись разрезана по паузам → grunt_* (короткие), death_* (длинные)
+
+7. qubodup — Dull explosion (CC0)
+   https://opengameart.org/content/dull-explosion  (explosion_dull.flac)
+   → explosion_01
+
+8. AntumDeluge — Fire crackling (CC0)
+   https://opengameart.org/content/fire-crackling  (fire-1.ogg)
+   → fire_burst_01
+
+9. PagDev — Fireplace sound loop (CC0)
+   https://opengameart.org/content/fireplace-sound-loop  (fire.wav)
+   Взяты 8 с с плавной склейкой концов → fire_loop_01
+
+10. cynicmusic — Battle Theme A (CC0)
+    https://opengameart.org/content/battle-theme-a  (battleThemeA.mp3)
+    → music_battle_01 (только перекодирована, громкость 80%)
