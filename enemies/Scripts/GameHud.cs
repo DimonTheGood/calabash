@@ -78,13 +78,25 @@ namespace Calabash.Enemies
             // волна и сколько осталось — сверху по центру
             if (ph == WaveDirector.Phase.Fighting || ph == WaveDirector.Phase.Break)
             {
-                var r = new Rect(w * 0.5f - 170, 12, 340, 34);
-                Fill(r, new Color(Paper.r, Paper.g, Paper.b, 0.85f));
-                Fill(new Rect(r.x, r.yMax - 3, r.width, 3), Ink);
+                float k = Mathf.Clamp(Screen.height / 1080f, 0.6f, 2f);
+                var r = new Rect(w * 0.5f - 210 * k, 18 * k, 420 * k, 84 * k);
+                Fill(r, new Color(Ink.r, Ink.g, Ink.b, 0.86f));
+                Fill(new Rect(r.x, r.yMax - 4 * k, r.width, 4 * k), Fire);
+                // волны — кружки-огоньки: пройденные горят, текущая мигает
+                int n = director.WaveCount, cur = director.WaveIndex;
+                float pw = 14 * k, gap = 10 * k, px = w * 0.5f - (n * pw + (n - 1) * gap) * 0.5f, py = r.y + 54 * k;
+                for (int i = 0; i < n; i++)
+                {
+                    var pr = new Rect(px + i * (pw + gap), py, pw, pw);
+                    Color c = i < cur ? Fire : i == cur ? Color.Lerp(Fire, Paper, 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 6f)) : new Color(0.3f, 0.3f, 0.3f);
+                    if (i == n - 1 && i > cur) c = Blood;              // последняя — палач
+                    Fill(pr, c);
+                }
+                var ts = new GUIStyle(mid) { fontSize = Mathf.RoundToInt(26 * k), alignment = TextAnchor.MiddleCenter, normal = { textColor = Paper } };
                 string t = ph == WaveDirector.Phase.Fighting
-                    ? $"волна {director.WaveIndex + 1}/{director.WaveCount} · врагов: {director.Remaining}"
+                    ? $"волна {cur + 1} · врагов {director.Remaining}"
                     : $"передышка {Mathf.CeilToInt(director.PhaseTimer)} с";
-                GUI.Label(r, t, mid);
+                GUI.Label(new Rect(r.x, r.y + 6 * k, r.width, 40 * k), t, ts);
             }
 
             if (director.BannerTimer > 0f && director.Banner != "")

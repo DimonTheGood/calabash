@@ -40,6 +40,8 @@ namespace Calabash.Animation
         public Vector3 elbowHint = new Vector3(0.8f, -1f, -0.2f);
         [Tooltip("Поворот кулака вокруг предплечья, °: 0 — большой палец сверху, 90 — ладонью вниз")]
         public float fistRoll = 60f;
+        [Tooltip("Разворот самой модели кулака вокруг предплечья, °: 180 — пальцами к себе, костяшками к врагу")]
+        public float fistFlip = 180f;
         [Tooltip("Доля поворота кулака, которую повторяет предплечье")]
         [Range(0f, 1f)] public float forearmRollShare = 0.5f;
 
@@ -78,7 +80,7 @@ namespace Calabash.Animation
             Vector3 limb = new Vector3(scale * thickness, scale, scale * thickness);
             Place(upper, S, E - S, up, 0f, limb);
             Place(fore, E, W - E, up, roll * forearmRollShare, limb);
-            Place(fist, W - dn2(W - E) * fistInset * scale, W - E, up, roll, Vector3.one * scale * fistScale);
+            Place(fist, W - dn2(W - E) * fistInset * scale, W - E, up, roll + side * fistFlip, Vector3.one * scale * fistScale);
         }
 
         static Vector3 dn2(Vector3 v) => v.sqrMagnitude > 1e-8f ? v.normalized : Vector3.forward;
