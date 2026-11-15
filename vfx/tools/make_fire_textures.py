@@ -135,7 +135,7 @@ def small_from_flame():
         fr = np.array(fr.resize((nw, nh), Image.LANCZOS)).astype(float)
         fr[..., 1] = np.minimum(255, fr[..., 1] * 1.08)    # чуть желтее
         tile = np.zeros((th, tw, 4))
-        ox, oy = (tw - nw) // 2, th - nh - 2               # основание внизу тайла, край тайла прозрачный
+        ox, oy = (tw - nw) // 2, (th - nh) // 2           # по центру тайла: пламя сидит на кулаке, а не под ним
         tile[oy:oy + nh, ox:ox + nw] = fr
         oi, oj = f % tx, f // tx
         out[oj * th:(oj + 1) * th, oi * tw:(oi + 1) * tw] = tile
