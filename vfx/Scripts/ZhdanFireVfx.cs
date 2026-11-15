@@ -288,9 +288,26 @@ namespace Calabash.Vfx
             }
             Transform f = right ? fpFistRight : fpFistLeft;
             if (f == null) return transform.position + Vector3.up;
+            // центр самой модели кулака: не зависит от того, как кулак развёрнут вокруг предплечья
+            Renderer fr = right ? fpRendRight : fpRendLeft;
+            if (fr == null)
+            {
+                foreach (var cand in f.GetComponentsInChildren<Renderer>())
+                    if (cand is MeshRenderer || cand is SkinnedMeshRenderer) { fr = cand; break; }
+                if (right) fpRendRight = fr; else fpRendLeft = fr;
+            }
+            if (fr != null)
+            {
+                Vector3 c = fr.bounds.center;
+                Vector3 d = c - f.position;
+                along = d.sqrMagnitude > 1e-6f ? d.normalized : -f.up;
+                return c;
+            }
             along = -f.up;
             return f.position + along * fpFistCenter * Mathf.Abs(f.lossyScale.y);
         }
+
+        Renderer fpRendLeft, fpRendRight;
 
         void LateUpdate() => Tick(Time.deltaTime);
 
@@ -302,6 +319,8 @@ namespace Calabash.Vfx
             Heat = Mathf.Lerp(minHeat, 1f, f01);
             float tp = cameraMode != null ? cameraMode.Blend : 1f;
             Vector3 vel = movement != null ? movement.Velocity : Vector3.zero;
+            // на земле в скорости есть прижим вниз: с ним пламя кулаков утекало под руки, к нижнему краю экрана
+            if (movement != null && movement.IsGrounded && vel.y < 0f) vel.y = 0f;
 
             AttackKind atk = combat != null ? combat.CurrentAttack : AttackKind.None;
             AttackPhase phase = combat != null ? combat.Phase : AttackPhase.Idle;
@@ -347,7 +366,12 @@ namespace Calabash.Vfx
                 // флипбук стоит на нижней части кадра: опускаем точку, чтобы пламя обнимало кулак, а не висело над ним
                 Vector3 baseP = p - Vector3.up * 0.035f * fistSize;
                 Emit(fistFlames, ref accFist, r, () => baseP + Random.insideUnitSphere * 0.03f * fistSize, vel, 0.25f, fistSize);
-                Emit(hitTongues, ref accFistLick, r * 0.3f, () => baseP + Random.insideUnitSphere * 0.03f * fistSize, vel + Vector3.up * 1.8f, 0.4f, 0.3f * fistSize);
+                // плоские языки: от третьего лица — всегда, от первого — только на замахе и ударе и вдвое мельче,
+                // иначе у нижнего края экрана висят крупные оранжевые пятна
+                bool lick = ThirdPerson || striking || charge > 0.2f;
+                float lickSize = (ThirdPerson ? 0.3f : 0.15f) * fistSize;
+                if (lick)
+                    Emit(hitTongues, ref accFistLick, r * (ThirdPerson ? 0.3f : 0.2f), () => baseP + Random.insideUnitSphere * 0.03f * fistSize, vel + Vector3.up * 1.8f, 0.4f, lickSize);
                 if (charge > 0.2f || striking)
                     Emit(embers, ref accFistEmber, (20f + 60f * charge) * dt, () => p + Random.insideUnitSphere * 0.06f, vel + Vector3.up * 0.8f, 1.5f, 0.8f);
 
