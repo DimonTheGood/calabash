@@ -17,5 +17,6 @@ https://creativecommons.org/publicdomain/zero/1.0/
    https://unity.com/blog/engine-platform/free-vfx-image-sequences-flipbooks
    Флипбуки переведены из TGA в PNG, кадры отодвинуты от краёв тайла, альфа пламени сделана плотной:
    - T_Flame03_16x4.png       — Flame03-flipbooks.zip, Flame03_16x4.tga
-   - T_SmallFlame01_16x4.png  — SmallFlame01-flipbooks.zip, SmallFlame01_16x4.tga (уменьшен с 2048×1024 до 1024×512)
+   - T_SmallFlame01_16x4.png  — те же кадры Flame03, уменьшенные, зеркальные и сдвинутые по фазе
+                                (исходный SmallFlame01_16x4.tga не ложился на сетку 16×4, кадры резались полосами)
    - T_WispySmoke01_8x8.png   — WispySmoke01-flipbooks.zip, WispySmoke01_8x8.tga

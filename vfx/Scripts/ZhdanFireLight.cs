@@ -1,5 +1,6 @@
 using Calabash.Combat;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace Calabash.Vfx
 {
@@ -34,7 +35,14 @@ namespace Calabash.Vfx
         [Tooltip("Ближе этого тень не отбрасывается: тело и руки самого Ждана не загораживают свет, м")]
         public float shadowNearPlane = 0.8f;
 
-        Light lamp;
+        [Header("Свет на руки от первого лица")]
+        [Tooltip("Руки на своём слое рендера: свет над головой их не трогает, их светит этот, у камеры")]
+        public Vector3 armsLightOffset = new Vector3(0f, 1.6f, -0.2f);
+        public float armsIntensity = 9f;
+        public float armsFlare = 2f;
+        public float armsRange = 5f;
+
+        Light lamp, armsLamp;
         float flare;
         float seed;
 
@@ -58,6 +66,29 @@ namespace Calabash.Vfx
             lamp.shadowResolution = UnityEngine.Rendering.LightShadowResolution.Low;   // точечный свет — 6 карт теней, иначе не влезают в атлас
             lamp.range = maxRange;
             lamp.intensity = maxIntensity;
+            SetLayers(lamp, 1u);                                           // только мир (Default)
+
+            var cam = GetComponentInChildren<Camera>();
+            if (cam != null)
+            {
+                var ag = new GameObject("ArmsFireLight");
+                ag.transform.SetParent(cam.transform, false);
+                ag.transform.localPosition = armsLightOffset;
+                armsLamp = ag.AddComponent<Light>();
+                armsLamp.type = LightType.Point;
+                armsLamp.renderMode = LightRenderMode.ForcePixel;
+                armsLamp.shadows = LightShadows.None;
+                armsLamp.range = armsRange;
+                SetLayers(armsLamp, 1u << 1);                               // ZhdanArmsView.ArmsRenderingLayer
+            }
+        }
+
+        /// <summary>URP читает слои света из UniversalAdditionalLightData, а не из Light.renderingLayerMask.</summary>
+        static void SetLayers(Light l, uint mask)
+        {
+            l.renderingLayerMask = (int)mask;
+            var d = l.GetUniversalAdditionalLightData();
+            if (d != null) d.renderingLayers = mask;
         }
 
         /// <summary>Вспышка: k ≈ 1 — удар, больше — сильнее.</summary>
@@ -78,6 +109,12 @@ namespace Calabash.Vfx
             lamp.range = Mathf.Lerp(minRange, maxRange, h) * (0.95f + 0.05f * shake) + flare * flareRange;
             lamp.color = color;
             lamp.enabled = lamp.intensity > 0.01f;
+            if (armsLamp != null)
+            {
+                armsLamp.color = color;
+                armsLamp.intensity = lit ? armsIntensity * Mathf.Lerp(0.6f, 1f, h) * shake + flare * armsFlare : 0f;
+                armsLamp.enabled = armsLamp.intensity > 0.01f;
+            }
         }
     }
 }

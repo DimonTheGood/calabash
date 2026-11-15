@@ -158,17 +158,33 @@ namespace Calabash.Enemies
             }
         }
 
+        static Texture2D vignetteTex;
+
+        /// <summary>Мягкая виньетка урона: к краям гуще, с рваной тушевой кромкой (не прямоугольная рамка).</summary>
         static void Vignette(float w, float h, Color c, float a)
         {
-            float t = Mathf.Min(w, h) * 0.08f;
-            var col = new Color(c.r, c.g, c.b, a);
-            Fill(new Rect(0, 0, w, t), col);
-            Fill(new Rect(0, h - t, w, t), col);
-            Fill(new Rect(0, t, t, h - 2 * t), col);
-            Fill(new Rect(w - t, t, t, h - 2 * t), col);
-            var inner = new Color(c.r, c.g, c.b, a * 0.4f);
-            Fill(new Rect(t, t, w - 2 * t, t * 0.6f), inner);
-            Fill(new Rect(t, h - t * 1.6f, w - 2 * t, t * 0.6f), inner);
+            if (vignetteTex == null)
+            {
+                const int N = 256;
+                vignetteTex = new Texture2D(N, N, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
+                var px = new Color32[N * N];
+                for (int y = 0; y < N; y++)
+                    for (int x = 0; x < N; x++)
+                    {
+                        float u = x / (N - 1f) * 2f - 1f, v = y / (N - 1f) * 2f - 1f;
+                        float ang = Mathf.Atan2(v, u);
+                        float rag = 0.06f * Mathf.PerlinNoise(ang * 3f + 10f, 0.5f) + 0.03f * Mathf.PerlinNoise(ang * 11f, 3.3f);
+                        float d = Mathf.Sqrt(u * u * 0.85f + v * v * 0.85f) + rag;   // эллипс по экрану
+                        float k = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.62f, 1.18f, d));
+                        px[y * N + x] = new Color32(255, 255, 255, (byte)(k * 255f));
+                    }
+                vignetteTex.SetPixels32(px);
+                vignetteTex.Apply();
+            }
+            var old = GUI.color;
+            GUI.color = new Color(c.r, c.g, c.b, Mathf.Clamp01(a * 1.15f));
+            GUI.DrawTexture(new Rect(0, 0, w, h), vignetteTex);
+            GUI.color = old;
         }
 
         static void Fill(Rect r, Color c)

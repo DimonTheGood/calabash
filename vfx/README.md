@@ -79,6 +79,8 @@ python3 vfx/tools/make_fire_textures.py <папка с архивами>
 ```
 
 Только срезать слабую альфу у готовых текстур, без архивов: `python3 vfx/tools/make_fire_textures.py . --refloor` (один раз: повтор срежет ещё).
+- `--small` пересобирает `T_SmallFlame01_16x4.png` из готового `T_Flame03_16x4.png` (исходники не нужны).
+- Руки от первого лица — на своём слое рендера (`ZhdanArmsView.ArmsRenderingLayer`): свет огня над головой их не трогает, их светит отдельный свет `ArmsFireLight` из `ZhdanFireLight`. Слои света URP берёт из `UniversalAdditionalLightData.renderingLayers`.
 
 Скрипт:
 - собирает атласы Kenney;
