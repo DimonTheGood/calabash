@@ -105,6 +105,9 @@ namespace Calabash.Game
             mode = Mode.Main;
         }
 
+        [Tooltip("Кнопки меню. Выключить — для скриншота-превью: остаются название и сцена")]
+        public bool showButtons = true;
+
         void OnGUI()
         {
             GUI.depth = -10;
@@ -136,6 +139,7 @@ namespace Calabash.Game
             GUI.Label(new Rect(x + 4 * s, h * 0.12f + 182 * s, w * 0.5f, 44 * s), "его хотели сжечь", sub);
             GUI.color = old;
 
+            if (!showButtons) return;                  // кадр для превью: только название и сцена
             float bw = 380 * s, bh = 62 * s, y = h * 0.12f + 280 * s;
             bool live = mode == Mode.Main && a > 0.5f;
             var p = GameProgress.Current;
