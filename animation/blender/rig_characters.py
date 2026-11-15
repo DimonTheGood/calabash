@@ -595,9 +595,63 @@ def clip_npc_run(info, t):
     return gait(info, t, 34, 60, 10, 0.028, 1.0, 55, bounce=0.02)
 
 
+# --- enemy attacks: 0..0.4 windup (the telegraph), 0.4..0.55 strike, then recovery ---------------
+def npc_attack(t):
+    """-1 = full windup, 1 = full strike."""
+    if t < 0.4:
+        return -span(t, 0.0, 0.4)
+    if t < 0.55:
+        return mix(-1.0, 1.0, span(t, 0.4, 0.5))
+    return 1.0 - span(t, 0.6, 1.0)
+
+
+def clip_thrust(info, t):
+    """Spear or pitchfork lunge: both arms pull back, then drive forward with a step."""
+    p = Pose(); e = npc_attack(t); k = max(0.0, e); w = max(0.0, -e)
+    p.rot("Spine", E(x=-6 * w + 12 * k)).rot("Spine1", E(x=-8 * w + 14 * k, z=10 * w - 8 * k)).rot("Head", E(x=4 * w - 14 * k))
+    for s, x in SIDES:
+        p.rot(f"UpperArm.{x}", E(x=22 * w - 40 * k)).rot(f"Forearm.{x}", E(x=-30 * w + 25 * k))
+    p.rot("Thigh.L", E(x=-30 * k + 6 * w)).rot("Shin.L", E(x=25 * k))
+    p.rot("Thigh.R", E(x=18 * k)).rot("Shin.R", E(x=10 * k))
+    p.move("Hips", (0, -0.12 * k + 0.04 * w, -0.06 * k))
+    return p
+
+
+def clip_chop(info, t):
+    """Heavy overhead chop (axe): arms high over the head, then down to the ground with a bow."""
+    p = Pose(); e = npc_attack(t); k = max(0.0, e); w = max(0.0, -e)
+    p.rot("Spine", E(x=-10 * w + 22 * k)).rot("Spine1", E(x=-12 * w + 20 * k)).rot("Head", E(x=8 * w - 16 * k))
+    for s, x in SIDES:
+        p.rot(f"UpperArm.{x}", E(x=-130 * w - 40 * k)).rot(f"Forearm.{x}", E(x=-40 * w))
+    p.rot("Thigh.L", E(x=-25 * k)).rot("Shin.L", E(x=30 * k)).rot("Thigh.R", E(x=10 * k)).rot("Shin.R", E(x=20 * k))
+    p.move("Hips", (0, -0.06 * k, -0.12 * k))
+    return p
+
+
+def clip_throw(info, t):
+    """Overhand throw with the right arm, the body turns into it."""
+    p = Pose(); e = npc_attack(t); k = max(0.0, e); w = max(0.0, -e)
+    p.rot("Spine1", E(x=-8 * w + 14 * k, z=-30 * w + 25 * k)).rot("Chest", E(z=-10 * w + 10 * k))
+    p.rot("UpperArm.R", E(x=-150 * w - 80 * k, y=-20 * w)).rot("Forearm.R", E(x=-70 * w - 10 * k))
+    p.rot("UpperArm.L", E(x=-50 * w + 10 * k, y=20 * w))
+    p.rot("Thigh.L", E(x=-20 * k)).rot("Shin.L", E(x=15 * k))
+    return p
+
+
+def clip_shoot(info, t):
+    """Bow: turn sideways, bow arm points at the target, the string hand draws to the cheek, release."""
+    p = Pose(); draw = span(t, 0.05, 0.45) * (1 - span(t, 0.5, 0.55)); aim = span(t, 0.0, 0.25) * (1 - span(t, 0.75, 1.0))
+    p.rot("Spine1", E(z=35 * aim)).rot("Head", E(z=-30 * aim))
+    p.rot("UpperArm.L", E(x=-88 * aim, y=10 * aim)).rot("Forearm.L", E(x=-5 * aim))
+    p.rot("UpperArm.R", E(x=-80 * aim, y=-10 * aim, z=-25 * draw)).rot("Forearm.R", E(x=-40 * aim - 90 * draw))
+    return p
+
+
 COMMON = [("Idle", 60, clip_idle, True), ("Walk", 32, clip_walk, True), ("Run", 20, clip_npc_run, True),
           ("Hit", 12, clip_hit, False), ("Death", 36, clip_death, False), ("GetUp", 36, clip_getup, False)]
-NPC_CLIPS = COMMON + [("Talk", 90, clip_talk, True), ("Pray", 120, clip_pray, True), ("Cower", 45, clip_cower, True)]
+NPC_CLIPS = COMMON + [("Talk", 90, clip_talk, True), ("Pray", 120, clip_pray, True), ("Cower", 45, clip_cower, True),
+                      ("Thrust", 24, clip_thrust, False), ("Chop", 36, clip_chop, False),
+                      ("Throw", 24, clip_throw, False), ("Shoot", 30, clip_shoot, False)]
 HERO_CLIPS = [("Idle", 60, clip_hero_idle, True), ("Walk", 30, clip_walk, True), ("Run", 14, clip_hero_run, True),
               ("Jump", 12, clip_jump, False), ("Fall", 30, clip_fall, True), ("Slide", 30, clip_slide, True),
               ("Dash", 12, clip_dash, True), ("Slam", 20, clip_slam, True), ("Hit", 12, clip_hit, False),
@@ -733,7 +787,8 @@ def preview(cid, rig, mesh, acts, folder):
     SC.display.shading.light = "STUDIO"; SC.display.shading.color_type = "MATERIAL"
     SC.render.resolution_x, SC.render.resolution_y = 300, 360
     SC.render.film_transparent = False
-    names = {"Walk", "Run", "Jab_R", "Hook_R", "Slide", "Death", "Talk", "Heavy", "Uppercut"}
+    names = {"Walk", "Run", "Jab_R", "Hook_R", "Slide", "Death", "Talk", "Heavy", "Uppercut",
+             "Thrust", "Chop", "Throw", "Shoot"}
     for act in acts:
         if act.name.split(".")[0] not in names:
             continue
