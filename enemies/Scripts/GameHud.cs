@@ -126,7 +126,7 @@ namespace Calabash.Enemies
                 GUI.Label(new Rect(0, h * 0.6f, w, 30), "уклонился!", s);
             }
 
-            if (ph == WaveDirector.Phase.GameOver) EndScreen(w, h, Ink, Paper, "ОГОНЬ ПОГАС",
+            if (ph == WaveDirector.Phase.GameOver && !director.externalFlow) EndScreen(w, h, Ink, Paper, "ОГОНЬ ПОГАС",
                 director.externalFlow ? "" : $"волна {director.WaveIndex + 1}/{director.WaveCount} · убито: {director.Kills}\n\nR — заново");
             else if (ph == WaveDirector.Phase.Victory && !director.externalFlow) EndScreen(w, h, Paper, Ink, "ДЕРЕВНЯ ОТБИТА",
                 $"убито: {director.Kills} · время {Mathf.FloorToInt(director.SurvivedTime / 60)}:{Mathf.FloorToInt(director.SurvivedTime % 60):00}\n\nR — ещё раз");

@@ -307,6 +307,20 @@ namespace Calabash.Game
                     break;
             }
             if (fade > 0f) Ui.Shade(mode == Mode.Dying ? Color.white : Color.black, fade);
+            if (mode == Mode.Dying)
+            {
+                // карточка смерти поверх белого затемнения: тушевая полоса не выцветает вместе с экраном
+                float a = Mathf.Clamp01((3f - endTimer) * 3f);
+                float bh = 150 * s, by = h * 0.5f - bh * 0.5f;
+                Ui.Fill(new Rect(0, by, w, bh), new Color(Ui.Ink.r, Ui.Ink.g, Ui.Ink.b, 0.92f * a));
+                Ui.Fill(new Rect(0, by, w, 4 * s), new Color(Ui.Fire.r, Ui.Fire.g, Ui.Fire.b, a));
+                Ui.Fill(new Rect(0, by + bh - 4 * s, w, 4 * s), new Color(Ui.Fire.r, Ui.Fire.g, Ui.Fire.b, a));
+                var old = GUI.color;
+                GUI.color = new Color(1f, 1f, 1f, a);
+                GUI.Label(new Rect(0, by + 18 * s, w, 80 * s), "ОГОНЬ ПОГАС", Ui.Title(64, Ui.Paper));
+                GUI.Label(new Rect(0, by + 96 * s, w, 36 * s), "но в золе осталась искра", Ui.Title(24, Ui.Fire));
+                GUI.color = old;
+            }
         }
 
         void DrawPause(float w, float h, float s)
