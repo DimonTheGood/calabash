@@ -48,6 +48,8 @@ namespace Calabash.Animation
         /// <summary>Слой рендера рук. Свет огня Ждана над головой (1/d², в 1 м от рук) их не освещает,
         /// руки светит свой мягкий свет ZhdanFireLight. Иначе на ударе рука уходит в белое.</summary>
         public const uint ArmsRenderingLayer = 1u << 1;
+        [Tooltip("Насколько светлая ткань рукавов темнее своей: 1 — как есть, 0,3 — в копоти")]
+        [Range(0.1f, 1f)] public float sleeveSoot = 0.3f;
 
         void Start()
         {
@@ -55,6 +57,23 @@ namespace Calabash.Animation
                 if (t != null)
                     foreach (var r in t.GetComponentsInChildren<Renderer>(true))
                         if (r is MeshRenderer || r is SkinnedMeshRenderer) r.renderingLayerMask = ArmsRenderingLayer;
+            // рукава в копоти: белая рубаха на выпаде читалась как пересвет
+            var block = new MaterialPropertyBlock();
+            foreach (var t in new[] { upperLeft, upperRight })
+                if (t != null)
+                    foreach (var r in t.GetComponentsInChildren<Renderer>(true))
+                    {
+                        var mats = r.sharedMaterials;
+                        for (int i = 0; i < mats.Length; i++)
+                        {
+                            if (mats[i] == null || !mats[i].HasProperty("_BaseColor") || mats[i].shader.name.Contains("Unlit")) continue;
+                            Color c = mats[i].GetColor("_BaseColor");
+                            if (c.maxColorComponent < 0.45f) continue;                 // уже тёмное — не трогаем
+                            r.GetPropertyBlock(block, i);
+                            block.SetColor("_BaseColor", new Color(c.r * sleeveSoot, c.g * sleeveSoot, c.b * sleeveSoot, c.a));
+                            r.SetPropertyBlock(block, i);
+                        }
+                    }
         }
 
         void LateUpdate()

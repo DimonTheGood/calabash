@@ -79,7 +79,13 @@ namespace Calabash.Enemies
             InkSplash(from, flat, style == Style.Launch || style == Style.Skyward ? 26 : 14);
             if (PlayerTarget.CameraFx != null) PlayerTarget.CameraFx.AddShake(style == Style.Drop ? 0.05f : 0.1f);
 
-            // удар Ждана — огонь: в полёте тело горит, иначе ночью его не видно
+            // в полёте тело белое, как в ударном кадре манги: тёмную фигуру ночью не видно. Упав, чернеет в уголь
+            if (style == Style.Launch || style == Style.Skyward)
+            {
+                CaptureColors();
+                Tint(new Color(0.96f, 0.94f, 0.88f), 1f);
+            }
+            // удар Ждана — огонь: в полёте тело горит
             if ((style == Style.Launch || style == Style.Skyward) && burnFx != null)
             {
                 if (!burnFx.isPlaying) burnFx.Play();
@@ -109,12 +115,7 @@ namespace Calabash.Enemies
                     break;
                 case Style.Ash:
                     FreezePose("Hit");
-                    baseColors = new Color[rends.Length];
-                    for (int i = 0; i < rends.Length; i++)
-                    {
-                        var m = rends[i].sharedMaterial;
-                        baseColors[i] = m != null && m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : Color.gray;
-                    }
+                    CaptureColors();
                     if (burnFx != null)
                     {
                         if (!burnFx.isPlaying) burnFx.Play();
@@ -243,6 +244,7 @@ namespace Calabash.Enemies
             vel = Vector3.MoveTowards(vel, Vector3.zero, 14f * dt);
             if (vel.sqrMagnitude > 0.01f && !Solid(c, vel.normalized, vel.magnitude * dt + 0.4f, out _)) c += vel * dt;
             angle = Mathf.MoveTowardsAngle(angle, lieAngle, 500f * dt);
+            if (t < 1.3f) Tint(Color.Lerp(new Color(0.96f, 0.94f, 0.88f), new Color(0.03f, 0.03f, 0.03f), Mathf.Clamp01(t / 1.2f)), 1f);
             if (t > 3f) c += Vector3.down * dt * 0.35f;
             Place();
             if (t > 5.5f) Remove();
@@ -274,13 +276,7 @@ namespace Calabash.Enemies
         {
             const float charTime = 0.55f, hold = 0.95f, crumble = 0.55f;
             float k = Mathf.Clamp01(age / charTime);
-            for (int i = 0; i < rends.Length; i++)
-            {
-                if (rends[i] == null || rends[i] is ParticleSystemRenderer) continue;
-                rends[i].GetPropertyBlock(block);
-                block.SetColor("_BaseColor", Color.Lerp(baseColors[i], new Color(0.02f, 0.02f, 0.02f, baseColors[i].a), k));
-                rends[i].SetPropertyBlock(block);
-            }
+            Tint(new Color(0.02f, 0.02f, 0.02f), k);
             // судорога, пока чернеет
             if (age < charTime) transform.rotation = baseRot * Quaternion.Euler(Mathf.Sin(age * 60f) * 4f * (1f - k), 0f, Mathf.Cos(age * 47f) * 4f * (1f - k));
             if (age < hold) return;
@@ -311,6 +307,29 @@ namespace Calabash.Enemies
                 transform.position += vel * dt;
             if (age > 4f) transform.position += Vector3.down * dt * 0.6f;
             if (age > 6.5f) Remove();
+        }
+
+        void CaptureColors()
+        {
+            baseColors = new Color[rends.Length];
+            for (int i = 0; i < rends.Length; i++)
+            {
+                var m = rends[i] != null ? rends[i].sharedMaterial : null;
+                baseColors[i] = m != null && m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : Color.gray;
+            }
+        }
+
+        /// <summary>Красит тело: k = 0 — свои цвета, 1 — целиком to.</summary>
+        void Tint(Color to, float k)
+        {
+            if (baseColors == null) return;
+            for (int i = 0; i < rends.Length; i++)
+            {
+                if (rends[i] == null || rends[i] is ParticleSystemRenderer) continue;
+                rends[i].GetPropertyBlock(block);
+                block.SetColor("_BaseColor", Color.Lerp(baseColors[i], new Color(to.r, to.g, to.b, baseColors[i].a), k));
+                rends[i].SetPropertyBlock(block);
+            }
         }
 
         // ------------------------------------------------------------------ общее
