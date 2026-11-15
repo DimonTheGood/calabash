@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using Calabash.Audio;
 using Calabash.Combat;
@@ -10,8 +11,9 @@ namespace Calabash.Game
     /// Сцена после смерти. Режим берётся из GameProgress.NextAfterlife:
     /// - Лимб: пустой белый мир, вдали стоит Лимб. Подойди — он спросит, будешь ли ты ещё убивать.
     ///   «Да» — назад в деревню с тем же прогрессом. «Нет» — рай, конец игры.
-    /// - Рай: свет, тишина, огонь гаснет. Конец.
-    /// - Ад (после смерти палача Корнея): чёрное небо, красная земля, огонь вокруг. Конец.
+    /// - Рай: катсцена — огонь гаснет, каравай на постаменте, Лимб уходит в свет, камера поднимается. Конец.
+    /// - Ад (после смерти палача Корнея): катсцена — Ждан горит в кольце огня, вокруг убитые им жители,
+    ///   Лимб отворачивается, камера уходит вверх. Конец.
     /// После концовки прогресс сбрасывается и игра возвращается в главное меню.
     /// </summary>
     public class Afterlife : MonoBehaviour
@@ -25,10 +27,17 @@ namespace Calabash.Game
 
         [Tooltip("Ближе этого к Лимбу — он заговорит, м")] public float talkDistance = 4.5f;
 
-        [Header("Картинки концовок")]
-        public Texture2D heavenImage;
-        public Texture2D hellImage;
+        [Header("Портрет Лимба в разговоре")]
         public Texture2D limboImage;
+
+        [Header("Концовки-катсцены (ставит GameSetup)")]
+        [Tooltip("Камера концовок; при концовке герой с камерой выключается")] public Camera endCam;
+        [Tooltip("Ждан со стороны: модель героя с анимацией")] public Transform actor;
+        public ParticleSystem actorFire;
+        public Light actorLight;
+        [Tooltip("Рай: постамент с караваем, светлые искры")] public GameObject heavenProps;
+        public Transform bread;
+        [Tooltip("Ад: убитые жители стоят в огне")] public GameObject hellCrowd;
 
         enum Mode { Walk, Talk, Ending }
         Mode mode;
@@ -40,7 +49,6 @@ namespace Calabash.Game
         string fadeTarget;
         List<string> lines;
         List<string> ending;
-        int endPage;
 
         static readonly Color HellSky = new Color32(0x12, 0x06, 0x06, 0xFF);
         static readonly Color HellGround = new Color32(0x5A, 0x0C, 0x10, 0xFF);
@@ -64,6 +72,7 @@ namespace Calabash.Game
 
             if (kind == GameProgress.Afterlife.Hell) { SetupHell(); StartEnding(HellText(p)); return; }
             if (kind == GameProgress.Afterlife.Heaven) { SetupHeaven(); StartEnding(HeavenText(p)); return; }
+
 
             CalabashMusic.Play("limbo");
             mode = Mode.Walk;
@@ -147,16 +156,14 @@ namespace Calabash.Game
                     break;
                 case Mode.Ending:
                     endTime += dt;
-                    if ((Ui.Pressed("next") || Ui.Clicked() || Ui.Pressed("esc")) && endTime > 0.6f)
+                    subTime += dt;
+                    bool key = Ui.Pressed("next") || Ui.Clicked() || Ui.Pressed("esc");
+                    if (finalCard && key && endTime > 1f)
                     {
-                        endPage++;
-                        endTime = 0f;
-                        if (endPage >= ending.Count)
-                        {
-                            GameProgress.Reset();          // игра пройдена — заново с меню
-                            FadeTo(GameFlow.VillageScene);
-                        }
+                        GameProgress.Reset();          // игра пройдена — заново с меню
+                        FadeTo(GameFlow.VillageScene);
                     }
+                    else if (!finalCard && key && endTime > 0.6f) skip = true;   // пропустить катсцену
                     break;
             }
         }
@@ -186,9 +193,233 @@ namespace Calabash.Game
         {
             mode = Mode.Ending;
             ending = text;
-            endPage = 0;
             endTime = 0f;
             SetControl(false);
+            StartCoroutine(kind == GameProgress.Afterlife.Hell ? HellScene() : HeavenScene());
+        }
+
+        // ------------------------------------------------------------------ концовки-катсцены
+        bool skip, finalCard;
+        float endFade;
+        Color endFadeColor = Color.white;
+        string subtitle = "";
+        float subTime;
+
+        /// <summary>Переключиться с героя на камеру концовки и показать Ждана со стороны.</summary>
+        void StageOn()
+        {
+            if (endCam == null || actor == null) return;
+            Vector3 pos = player != null ? player.transform.position : Vector3.zero;
+            Vector3 f = limbo != null ? limbo.position - pos : Vector3.forward;
+            f.y = 0f;
+            actor.SetPositionAndRotation(pos, Quaternion.LookRotation(f.sqrMagnitude > 0.01f ? f.normalized : Vector3.forward));
+            actor.gameObject.SetActive(true);
+            endCam.gameObject.SetActive(true);
+            if (player != null) player.SetActive(false);
+        }
+
+        IEnumerator HeavenScene()
+        {
+            StageOn();
+            if (limbo != null) limbo.gameObject.SetActive(true);
+            if (heavenProps != null) heavenProps.SetActive(true);
+            Vector3 c = actor != null ? actor.position : Vector3.zero;
+            Vector3 f = actor != null ? actor.forward : Vector3.forward, r = Vector3.Cross(Vector3.up, f);
+            Anim(LimboAnim, "Idle");
+            StartCoroutine(FireTo(0f, 4f));                           // огонь выходит из него
+            endFadeColor = Color.white; endFade = 1f;
+            StartCoroutine(EndFade(0f, 1.5f));
+
+            Say(ending[0]);
+            yield return Orbit(c + Vector3.up * 1.4f, 4.2f, 1.7f, -150f, -100f, 7f);
+
+            Say(ending[1]);
+            Vector3 b = bread != null ? bread.position : c + f * 5f + r * 3f;
+            yield return Shot(6f, b + Vector3.up * 0.45f - f * 1.7f + r * 0.7f, b + Vector3.up * 0.3f - f * 1.1f + r * 0.4f, b, b + Vector3.up * 0.05f);
+
+            Say(ending[2]);
+            StartCoroutine(LimboLeaves(f));
+            yield return Shot(7f, c - f * 2.2f + r * 0.7f + Vector3.up * 1.8f, c - f * 1.6f + r * 0.5f + Vector3.up * 1.7f,
+                              c + f * 8f + Vector3.up * 1.5f, c + f * 14f + Vector3.up * 1.6f);
+
+            Say("");
+            yield return Crane(c, 6f, Color.white);
+            yield return FinalCard();
+        }
+
+        IEnumerator HellScene()
+        {
+            StageOn();
+            if (hellCrowd != null)
+            {
+                hellCrowd.SetActive(true);
+                foreach (var a in hellCrowd.GetComponentsInChildren<Animator>()) Anim(a, Random.value < 0.7f ? "Cower" : "Pray", Random.value);
+            }
+            Vector3 c = actor != null ? actor.position : Vector3.zero;
+            Vector3 f = actor != null ? actor.forward : Vector3.forward, r = Vector3.Cross(Vector3.up, f);
+            if (limbo != null)
+            {
+                limbo.gameObject.SetActive(true);
+                limbo.rotation = Quaternion.LookRotation(f);               // спиной к Ждану
+            }
+            StartCoroutine(FireTo(1f, 0.5f));
+            endFadeColor = Color.black; endFade = 1f;
+            StartCoroutine(EndFade(0f, 1.5f));
+
+            Say(ending[0]);
+            yield return Orbit(c + Vector3.up * 1.3f, 3.6f, 0.6f, 160f, 230f, 7f);
+
+            Say(ending[1]);
+            yield return Pan(c + Vector3.up * 1.7f, f, -70f, 70f, 8f);
+
+            Say(ending[2]);
+            Vector3 l = limbo != null ? limbo.position : c + f * 14f;
+            yield return Shot(6f, c - f * 1.8f + r * 0.8f + Vector3.up * 1.9f, c - f * 1.2f + r * 0.6f + Vector3.up * 1.8f,
+                              l + Vector3.up * 1.4f, l + Vector3.up * 1.6f);
+
+            Say(ending[3]);
+            StartCoroutine(Flare());
+            yield return Shot(6f, c + f * 2.6f + Vector3.up * 1.7f, c + f * 1.7f + Vector3.up * 1.75f, c + Vector3.up * 1.6f, c + Vector3.up * 1.7f);
+
+            Say("");
+            yield return Crane(c, 6f, Color.black);
+            yield return FinalCard();
+        }
+
+        IEnumerator FinalCard()
+        {
+            finalCard = true;
+            endTime = 0f;
+            Say("");
+            yield break;
+        }
+
+        Animator LimboAnim => limbo != null ? limbo.GetComponentInChildren<Animator>() : null;
+
+        IEnumerator LimboLeaves(Vector3 f)
+        {
+            if (limbo == null) yield break;
+            yield return new WaitForSecondsRealtime(1.5f);
+            limbo.rotation = Quaternion.LookRotation(f);
+            Anim(LimboAnim, "Walk");
+            for (float t = 0f; t < 8f && !skip; t += Time.unscaledDeltaTime)
+            {
+                limbo.position += f * 1.1f * Time.unscaledDeltaTime;
+                yield return null;
+            }
+        }
+
+        IEnumerator FireTo(float to, float dur)
+        {
+            if (actorFire == null) yield break;
+            var em = actorFire.emission;
+            float rate = 90f;
+            if (!actorFire.isPlaying) actorFire.Play();
+            float from = to > 0.5f ? 0.3f : 1f;
+            for (float t = 0f; t < dur; t += Time.unscaledDeltaTime)
+            {
+                float k = Mathf.Lerp(from, to, t / dur);
+                em.rateOverTime = rate * k;
+                if (actorLight != null) actorLight.intensity = 14f * k;
+                yield return null;
+            }
+            em.rateOverTime = rate * to;
+            if (actorLight != null) actorLight.intensity = 14f * to;
+        }
+
+        IEnumerator Flare()
+        {
+            if (actorFire == null) yield break;
+            var em = actorFire.emission;
+            for (float t = 0f; t < 5f && !skip; t += Time.unscaledDeltaTime)
+            {
+                float k = 1f + 1.6f * Mathf.Clamp01(t / 3f);
+                em.rateOverTime = 90f * k;
+                if (actorLight != null) actorLight.intensity = 14f * k;
+                yield return null;
+            }
+        }
+
+        // камера
+        IEnumerator Shot(float dur, Vector3 from, Vector3 to, Vector3 lookFrom, Vector3 lookTo)
+        {
+            for (float t = 0f; t < dur && !skip; t += Time.unscaledDeltaTime)
+            {
+                float k = Mathf.SmoothStep(0f, 1f, t / dur);
+                Place(Vector3.Lerp(from, to, k), Vector3.Lerp(lookFrom, lookTo, k));
+                yield return null;
+            }
+        }
+
+        /// <summary>Облёт вокруг center на радиусе radius, высота height над центром, угол от a0 до a1 (от «лица»).</summary>
+        IEnumerator Orbit(Vector3 center, float radius, float height, float a0, float a1, float dur)
+        {
+            Vector3 f = actor != null ? actor.forward : Vector3.forward;
+            for (float t = 0f; t < dur && !skip; t += Time.unscaledDeltaTime)
+            {
+                float a = Mathf.Lerp(a0, a1, Mathf.SmoothStep(0f, 1f, t / dur));
+                Vector3 d = Quaternion.AngleAxis(a + 180f, Vector3.up) * f;
+                Place(center + d * radius + Vector3.up * height, center);
+                yield return null;
+            }
+        }
+
+        /// <summary>Камера стоит у Ждана и медленно поворачивается, оглядывая круг.</summary>
+        IEnumerator Pan(Vector3 eye, Vector3 f, float a0, float a1, float dur)
+        {
+            for (float t = 0f; t < dur && !skip; t += Time.unscaledDeltaTime)
+            {
+                float a = Mathf.Lerp(a0, a1, Mathf.SmoothStep(0f, 1f, t / dur));
+                Vector3 d = Quaternion.AngleAxis(a, Vector3.up) * f;
+                Place(eye + Vector3.up * 1.3f - d * 0.5f, eye + d * 10f - Vector3.up * 0.6f);   // над головой Ждана
+                yield return null;
+            }
+        }
+
+        /// <summary>Камера уходит вверх, Ждан остаётся внизу маленьким, экран заливается цветом.</summary>
+        IEnumerator Crane(Vector3 c, float dur, Color to)
+        {
+            Vector3 f = actor != null ? actor.forward : Vector3.forward;
+            Vector3 a = c - f * 3f + Vector3.up * 3f, b = c - f * 9f + Vector3.up * 26f;
+            endFadeColor = to;
+            StartCoroutine(EndFade(1f, dur, dur * 0.55f));
+            for (float t = 0f; t < dur && !skip; t += Time.unscaledDeltaTime)
+            {
+                float k = Mathf.SmoothStep(0f, 1f, t / dur);
+                Place(Vector3.Lerp(a, b, k), c + Vector3.up * 0.8f);
+                yield return null;
+            }
+            endFade = 1f;
+        }
+
+        IEnumerator EndFade(float to, float dur, float delay = 0f)
+        {
+            if (delay > 0f) yield return new WaitForSecondsRealtime(delay);
+            float from = endFade, d = Mathf.Max(0.01f, dur - delay);
+            for (float t = 0f; t < d; t += Time.unscaledDeltaTime)
+            {
+                endFade = Mathf.Lerp(from, to, t / d);
+                yield return null;
+            }
+            endFade = to;
+        }
+
+        void Place(Vector3 pos, Vector3 look)
+        {
+            var c = endCam != null && endCam.isActiveAndEnabled ? endCam : cam;
+            if (c == null) return;
+            c.transform.position = pos;
+            if ((look - pos).sqrMagnitude > 1e-4f) c.transform.rotation = Quaternion.LookRotation(look - pos);
+        }
+
+        void Say(string text) { subtitle = text; subTime = 0f; }
+
+        static void Anim(Animator a, string state, float offset = 0f)
+        {
+            if (a == null || !a.isActiveAndEnabled) return;
+            int h = Animator.StringToHash(state);
+            if (!a.HasState(0, h)) h = Animator.StringToHash("Idle");
+            if (a.HasState(0, h)) a.CrossFadeInFixedTime(h, 0.3f, 0, offset);
         }
 
         void SetupHeaven()
@@ -196,6 +427,7 @@ namespace Calabash.Game
             kind = GameProgress.Afterlife.Heaven;
             CalabashMusic.Play("heaven");
             if (cam != null) cam.backgroundColor = HeavenSky;
+            if (endCam != null) endCam.backgroundColor = HeavenSky;
             RenderSettings.fogColor = HeavenSky;
             if (sun != null) { sun.color = new Color32(0xFF, 0xE8, 0xC0, 0xFF); sun.intensity *= 1.4f; }
             var fx = player != null ? player.GetComponent<Calabash.Vfx.ZhdanFireVfx>() : null;
@@ -207,6 +439,7 @@ namespace Calabash.Game
         {
             CalabashMusic.Play("hell");
             if (cam != null) cam.backgroundColor = HellSky;
+            if (endCam != null) endCam.backgroundColor = HellSky;
             RenderSettings.fogColor = HellSky;
             RenderSettings.fogStartDistance = 5f;
             RenderSettings.fogEndDistance = 45f;
@@ -283,32 +516,32 @@ namespace Calabash.Game
         void DrawEnding(float w, float h, float s)
         {
             bool hell = kind == GameProgress.Afterlife.Hell;
-            Color fg = hell ? Ui.Paper : Ui.Ink;
-            string t = ending[Mathf.Min(endPage, ending.Count - 1)];
-            bool final = endPage >= ending.Count - 1;
-            Ui.Shade(hell ? Color.black : Ui.Paper, final ? 0.85f : 0.45f);
-            var img = hell ? hellImage : heavenImage;
-            if (final && img != null)
+            // кинополосы
+            float bar = h * 0.11f;
+            if (!finalCard)
             {
-                float ih = h * 0.5f, iw = ih * img.width / img.height;
-                var ir = new Rect(w * 0.5f - iw * 0.5f, h * 0.08f, iw, ih);
-                GUI.DrawTexture(ir, img, ScaleMode.ScaleToFit);
-                Ui.Frame(ir, hell ? Ui.Blood : Ui.Ink, 4f);
+                Ui.Fill(new Rect(0, 0, w, bar), Color.black);
+                Ui.Fill(new Rect(0, h - bar, w, bar), Color.black);
             }
-            int chars = Mathf.Clamp(Mathf.FloorToInt(endTime * 40f), 0, t.Length);
-            if (final)
+            if (endFade > 0f) Ui.Shade(endFadeColor, endFade);
+            if (!finalCard)
             {
-                string[] parts = t.Split('\n');
-                GUI.Label(new Rect(0, h * 0.62f, w, 110 * s), parts[0], Ui.Title(90, hell ? Ui.Blood : Ui.Ink));
-                if (parts.Length > 1) GUI.Label(new Rect(0, h * 0.62f + 110 * s, w, 60 * s), parts[1], Ui.Title(36, hell ? Ui.Fire : Ui.Gray));
-                GUI.Label(new Rect(0, h - 60 * s, w, 40 * s), "Пробел — в главное меню", Ui.Text(20, hell ? Ui.Gray : Ui.Gray, TextAnchor.MiddleCenter));
+                if (!string.IsNullOrEmpty(subtitle))
+                {
+                    int chars = Mathf.Clamp(Mathf.FloorToInt(subTime * 40f), 0, subtitle.Length);
+                    GUI.Label(new Rect(w * 0.1f, h - bar + 12 * s, w * 0.8f, bar), subtitle.Substring(0, chars), Ui.Text(30, Ui.Paper, TextAnchor.UpperCenter));
+                }
+                GUI.Label(new Rect(0, h - 36 * s, w - 24 * s, 30 * s), "Пробел — пропустить", Ui.Text(16, Ui.Gray, TextAnchor.MiddleRight));
+                return;
             }
-            else
-            {
-                var r = new Rect(w * 0.5f - 480 * s, h * 0.68f, 960 * s, 150 * s);
-                GUI.Label(r, t.Substring(0, chars), Ui.Text(34, fg, TextAnchor.MiddleCenter));
-                GUI.Label(new Rect(0, h - 50 * s, w, 40 * s), "Пробел — дальше", Ui.Text(18, Ui.Gray, TextAnchor.MiddleCenter));
-            }
+            string t = ending[ending.Count - 1];
+            string[] parts = t.Split('\n');
+            var old = GUI.color;
+            GUI.color = new Color(1, 1, 1, Mathf.Clamp01(endTime * 1.2f));
+            GUI.Label(new Rect(0, h * 0.36f, w, 120 * s), parts[0], Ui.Title(110, hell ? Ui.Blood : Ui.Ink));
+            if (parts.Length > 1) GUI.Label(new Rect(0, h * 0.36f + 125 * s, w, 60 * s), parts[1], Ui.Title(38, hell ? Ui.Fire : Ui.Gray));
+            GUI.color = old;
+            if (endTime > 1f) GUI.Label(new Rect(0, h - 60 * s, w, 40 * s), "Пробел — в главное меню", Ui.Text(20, Ui.Gray, TextAnchor.MiddleCenter));
         }
     }
 }
