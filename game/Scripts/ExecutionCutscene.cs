@@ -146,7 +146,6 @@ namespace Calabash.Game
             var p = GameProgress.Current;
             p.introSeen = true;
             GameProgress.Save();
-            GameProgress.SkipMenuOnce = true;
             GameFlow.Load(GameFlow.VillageScene);
         }
 

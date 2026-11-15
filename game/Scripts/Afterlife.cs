@@ -161,7 +161,7 @@ namespace Calabash.Game
                     if (finalCard && key && endTime > 1f)
                     {
                         GameProgress.Reset();          // игра пройдена — заново с меню
-                        FadeTo(GameFlow.VillageScene);
+                        FadeTo(GameFlow.MenuScene);
                     }
                     else if (!finalCard && key && endTime > 0.6f) skip = true;   // пропустить катсцену
                     break;
@@ -173,7 +173,6 @@ namespace Calabash.Game
             if (keepKilling)
             {
                 CalabashSfx.Play2D("fire_burst", 1f, 0.8f);
-                GameProgress.SkipMenuOnce = true;
                 FadeTo(GameFlow.VillageScene);
             }
             else

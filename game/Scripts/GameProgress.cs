@@ -30,8 +30,6 @@ namespace Calabash.Game
 
         /// <summary>Куда ведёт сцена Afterlife при загрузке.</summary>
         public static Afterlife NextAfterlife = Afterlife.Limbo;
-        /// <summary>Загрузить деревню сразу в бой, без меню (после лимба).</summary>
-        public static bool SkipMenuOnce;
 
         public static GameProgress Current
         {
@@ -111,6 +109,22 @@ namespace Calabash.Game
                 inp.mouseSensitivity = baseSensitivity * Sensitivity;
             foreach (var g in Object.FindObjectsByType<Calabash.Style.MangaGloom>(FindObjectsInactive.Exclude))
                 g.intensity = Gloom ? 1f : 0f;
+        }
+
+        /// <summary>Окно настроек (главное меню и пауза). onDone — по кнопке «Готово».</summary>
+        public static void DrawPanel(float w, float h, float s, System.Action onDone)
+        {
+            Ui.Shade(Ui.Paper, 0.7f);
+            var r = new Rect(w * 0.5f - 300 * s, h * 0.5f - 210 * s, 600 * s, 420 * s);
+            Ui.Panel(r);
+            GUI.Label(new Rect(r.x, r.y + 16 * s, r.width, 50 * s), "Настройки", Ui.Title(36, Ui.Ink));
+            float x = r.x + 40 * s, cw = r.width - 80 * s, y = r.y + 90 * s, rh = 46 * s;
+            Volume = Ui.Slider(new Rect(x, y, cw, rh), "Громкость", Volume, 0f, 1f); y += rh + 10 * s;
+            Music = Ui.Slider(new Rect(x, y, cw, rh), "Музыка", Music, 0f, 1f); y += rh + 10 * s;
+            Sensitivity = Ui.Slider(new Rect(x, y, cw, rh), "Мышь", Sensitivity, 0.2f, 3f); y += rh + 10 * s;
+            if (Ui.Button(new Rect(x, y, cw, rh), Gloom ? "Манга-фильтр: вкл" : "Манга-фильтр: выкл")) Gloom = !Gloom;
+            Apply();
+            if (Ui.Button(new Rect(r.x + r.width * 0.5f - 120 * s, r.yMax - 70 * s, 240 * s, 52 * s), "Готово")) onDone?.Invoke();
         }
     }
 }
