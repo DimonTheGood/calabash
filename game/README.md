@@ -94,6 +94,7 @@ Scripts/MainMenu.cs      — главное меню: камера вокруг 
 Scripts/GameFlow.cs      — бой в деревне: комикс (если нет катсцены), обучение, пауза, улучшения, смерть и победа
 Scripts/Afterlife.cs     — лимб (разговор и вопрос), катсцены рая и ада
 Scripts/ExecutionCutscene.cs — катсцена казни: планы камеры, субтитры, костёр
+Scripts/BoundPose.cs     — Ждан привязан к столбу: руки за столбом, рвётся в верёвках, пока горит костёр
 Scripts/TorchFlicker.cs  — дрожащий свет факелов
 Scripts/GameProgress.cs  — прогресс и настройки (PlayerPrefs)
 Scripts/Upgrades.cs      — список улучшений
