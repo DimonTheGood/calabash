@@ -43,19 +43,44 @@ namespace Calabash.Game.EditorTools
             VillageSceneBuilder.PlaceMap(mapPath, out Vector3 spawn, out Vector3 along, out Vector3 side, out Bounds road, out _, out _);
 
             // столб — на дороге в 9 м от колодца, толпа со стороны колодца
+            GroundRef = spawn.y;
             Vector3 P = Free(Ground(spawn + along * 9f), 4f);
             Vector3 F = -along;
             Vector3 R = Vector3.Cross(Vector3.up, F).normalized;
 
             Material wood = Mat($"{root}/Materials/M_PyreWood.mat", new Color32(0x2A, 0x22, 0x1C, 0xFF));
+            Material stakeWood = Mat($"{root}/Materials/M_StakeWood.mat", new Color32(0x8A, 0x6E, 0x50, 0xFF));
+            Material rope = Mat($"{root}/Materials/M_Rope.mat", new Color32(0xC8, 0xB4, 0x8A, 0xFF));
             Material dark = Mat($"{root}/Materials/M_TorchWood.mat", new Color32(0x1A, 0x16, 0x12, 0xFF));
             Material flame = FindMat("M_FX_Flame"), small = FindMat("M_FX_SmallFlame"), sparks = FindMat("M_FX_Sparks"), smoke = FindMat("M_FX_Smoke");
 
             var stage = new GameObject("Execution").transform;
-            Transform stake = BuildPyre(stage, P, wood);
+            Transform stake = BuildPyre(stage, P, wood, R, stakeWood);
 
-            // Ждан у столба, на хворосте
+            // Ждан у столба, на хворосте: руки заведены за столб, грудь перетянута верёвками
             Animator zhdan = Hero(stage, P + F * 0.32f + Vector3.up * 0.55f, F);
+            var ropes = new GameObject("Ropes").transform;
+            ropes.SetParent(stage, false);
+            foreach (float y in new[] { 1.02f, 1.2f, 1.36f })
+            {
+                var ring = Prim(PrimitiveType.Cylinder, ropes, "Rope", Vector3.zero, new Vector3(0.6f, 0.022f, 0.7f), rope).transform;
+                ring.SetPositionAndRotation(P + F * 0.15f + Vector3.up * (0.55f + y), Quaternion.LookRotation(F));
+            }
+            var knot = new GameObject("WristKnot").transform;
+            knot.SetParent(stage, false);
+            knot.SetPositionAndRotation(P - F * 0.17f + Vector3.up * (0.55f + 0.92f), Quaternion.LookRotation(F));
+            Prim(PrimitiveType.Sphere, ropes, "Knot", Vector3.zero, Vector3.one * 0.13f, rope).transform.position = knot.position;
+            BoundPose bound = null;
+            if (zhdan != null)
+            {
+                bound = zhdan.gameObject.AddComponent<BoundPose>();
+                Transform zt = zhdan.transform;
+                bound.upperL = FindDeep(zt, "UpperArm.L"); bound.foreL = FindDeep(zt, "Forearm.L"); bound.handL = FindDeep(zt, "Hand.L");
+                bound.upperR = FindDeep(zt, "UpperArm.R"); bound.foreR = FindDeep(zt, "Forearm.R"); bound.handR = FindDeep(zt, "Hand.R");
+                bound.chest = FindDeep(zt, "Chest"); bound.head = FindDeep(zt, "Head");
+                bound.anchor = knot;
+                if (bound.upperL == null || bound.handL == null) Debug.LogWarning("[Катсцена] У Ждана не найдены кости рук — поза «привязан» не сработает");
+            }
 
             var crowd = new List<Animator>();
             Animator Npc(string cid, Vector3 pos, Vector3 face)
@@ -105,7 +130,7 @@ namespace Calabash.Game.EditorTools
             }
 
             // огонь костра, свет, звук
-            ParticleSystem fire = Flames(stage, P, flame);
+            ParticleSystem fire = PyreFlames(stage, P, flame);
             ParticleSystem embers = Embers(stage, P, sparks);
             ParticleSystem smk = Smoke(stage, P, smoke);
             var lightGo = new GameObject("PyreLight");
@@ -171,6 +196,9 @@ namespace Calabash.Game.EditorTools
             cs.pyreSmoke = smk;
             cs.pyreLight = pyreLight;
             cs.pyreSound = snd;
+            cs.bound = bound;
+            cs.ropes = ropes.gameObject;
+            cs.fill = fill;
 
             string path = $"{root}/Scenes/{SceneName}.unity";
             EditorSceneManager.SaveScene(scene, path);
@@ -183,11 +211,24 @@ namespace Calabash.Game.EditorTools
         }
 
         // ------------------------------------------------------------------ место
+        /// <summary>Высота земли на площади. NaN — брать первое, во что упёрся луч сверху.</summary>
+        internal static float GroundRef = float.NaN;
+
+        /// <summary>Точка на земле под p. Из всех попаданий луча берём ближайшее по высоте к GroundRef:
+        /// иначе точка под крышей или навесом оказывается на крыше (палач шёл по воздуху).</summary>
         internal static Vector3 Ground(Vector3 p)
         {
-            if (Physics.Raycast(p + Vector3.up * 30f, Vector3.down, out var hit, 60f, ~0, QueryTriggerInteraction.Ignore))
-                return hit.point;
-            return p;
+            var hits = Physics.RaycastAll(p + Vector3.up * 30f, Vector3.down, 60f, ~0, QueryTriggerInteraction.Ignore);
+            if (hits.Length == 0) return p;
+            int best = 0;
+            for (int i = 1; i < hits.Length; i++)
+            {
+                bool better = float.IsNaN(GroundRef)
+                    ? hits[i].distance < hits[best].distance
+                    : Mathf.Abs(hits[i].point.y - GroundRef) < Mathf.Abs(hits[best].point.y - GroundRef);
+                if (better) best = i;
+            }
+            return hits[best].point;
         }
 
         /// <summary>Ближайшее свободное место (по спирали до maxR м), иначе само p.</summary>
@@ -204,14 +245,16 @@ namespace Calabash.Game.EditorTools
         }
 
         // ------------------------------------------------------------------ реквизит
-        internal static Transform BuildPyre(Transform parent, Vector3 p, Material wood)
+        internal static Transform BuildPyre(Transform parent, Vector3 p, Material wood, Vector3 across = default, Material stakeWood = null)
         {
+            if (stakeWood == null) stakeWood = wood;
             var root = new GameObject("Pyre").transform;
             root.SetParent(parent, false);
             root.position = p;
-            var pole = Prim(PrimitiveType.Cylinder, root, "Stake", new Vector3(0f, 1.9f, 0f), new Vector3(0.24f, 1.9f, 0.24f), wood);
-            Prim(PrimitiveType.Cylinder, root, "Cross", new Vector3(0f, 2.75f, 0f), new Vector3(0.12f, 0.75f, 0.12f), wood)
-                .transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            var pole = Prim(PrimitiveType.Cylinder, root, "Stake", new Vector3(0f, 1.9f, 0f), new Vector3(0.24f, 1.9f, 0.24f), stakeWood);
+            // перекладина — поперёк взгляда толпы, а не торцом в камеру
+            Prim(PrimitiveType.Cylinder, root, "Cross", new Vector3(0f, 3.25f, 0f), new Vector3(0.12f, 0.6f, 0.12f), stakeWood)
+                .transform.localRotation = across.sqrMagnitude > 0.01f ? Quaternion.FromToRotation(Vector3.up, across.normalized) : Quaternion.Euler(0f, 0f, 90f);
             var rnd = new System.Random(7);
             for (int ring = 0; ring < 3; ring++)
             {
@@ -391,6 +434,25 @@ namespace Calabash.Game.EditorTools
             main.maxParticles = 700;
             var em = ps.emission; em.rateOverTime = 170f;
             var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = 1.3f; sh.rotation = new Vector3(-90f, 0f, 0f);
+            Flipbook(ps, m, 16, 4);
+            return ps;
+        }
+
+        /// <summary>Костёр казни: много небольших языков, тянутся вверх вдоль столба, а не стеной по площади.</summary>
+        internal static ParticleSystem PyreFlames(Transform parent, Vector3 p, Material m)
+        {
+            var ps = NewPs(parent, "PyreFire", p + Vector3.up * 0.35f);
+            var main = ps.main;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.7f, 1.3f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(1.4f, 3.4f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 1.15f);
+            main.startColor = new ParticleSystem.MinMaxGradient(new Color32(0xFF, 0xD1, 0x66, 0xFF), new Color32(0xE0, 0x5A, 0x08, 0xFF));
+            main.gravityModifier = -0.5f;
+            main.maxParticles = 1200;
+            var em = ps.emission; em.rateOverTime = 380f;
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 6f; sh.radius = 1.05f; sh.rotation = new Vector3(-90f, 0f, 0f);
+            var sz = ps.sizeOverLifetime; sz.enabled = true;
+            sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(0.3f, 1f), new Keyframe(1f, 0.35f)));
             Flipbook(ps, m, 16, 4);
             return ps;
         }

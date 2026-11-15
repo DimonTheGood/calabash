@@ -32,6 +32,11 @@ namespace Calabash.Game
         public ParticleSystem pyreSmoke;
         public Light pyreLight;
         public AudioSource pyreSound;
+        [Tooltip("Поза «привязан к столбу» на Ждане")] public BoundPose bound;
+        [Tooltip("Верёвки на груди Ждана: сгорают вместе с костром")] public GameObject ropes;
+        [Tooltip("Заполняющий свет у камеры: сила подстраивается под расстояние до героя кадра")] public Light fill;
+        [Tooltip("Освещённость героя кадра от заполняющего света (свет гаснет как 1/d²)")] public float fillLevel = 1.0f;
+        [Tooltip("Яркость костра в разгаре")] public float pyreIntensity = 11f;
 
         float fade;            // 0 — видно, 1 — залито fadeColor
         Color fadeColor = Color.black;
@@ -85,12 +90,12 @@ namespace Calabash.Game
             // 1. площадь сверху: толпа с факелами вокруг столба
             Say("Зима. Голодный год.\nУ пекаря Гаврилы пропал каравай.");
             StartCoroutine(Fade(0f, 2f));
-            yield return Shot(7f, s - r * 15f + F * 17f + up * 10f, s - r * 9f + F * 11f + up * 5f, s + up * 2f, s + up * 1.6f);
+            yield return Shot(7f, s - r * 6f + F * 19f + up * 11f, s - r * 3f + F * 11f + up * 4.5f, s + up * 2f, s + up * 1.6f);
 
             // 2. Гаврила кричит
             Anim(gavrila, "Talk");
             Say("— Вор! Каравай украл Ждан!\nЕго поймали у реки с хлебом за пазухой.");
-            yield return Close(gavrila, 5.5f, 2.4f, 1.7f, 0.7f);
+            yield return Close(gavrila, 5.5f, 3.3f, 1.8f, 0.9f);
 
             // 3. Ждан у столба, снизу
             Say("Ждана привязали к столбу на площади.\nПод ноги сложили хворост.");
@@ -105,7 +110,7 @@ namespace Calabash.Game
             // 5. царь
             Anim(king, "Talk");
             Say("Царь даже не поднял глаз.\n— Сжечь.");
-            yield return Close(king, 5f, 3.4f, 1.8f, 0.6f, lookUp: 0.2f);
+            yield return Close(king, 5f, 4.4f, 3.6f, 0.8f);      // сверху: чёрный царь читается силуэтом на снегу
 
             // 6. Корней идёт с факелом
             Anim(korney, "Walk");
@@ -123,7 +128,7 @@ namespace Calabash.Game
             // 8. Ждан горит
             foreach (var a in crowd) Anim(a, Random.value < 0.6f ? "Cower" : "Idle", Random.value);
             Anim(gavrila, "Cower");
-            Anim(zhdan, "Hit");
+            StartCoroutine(Struggle(1f, 1.5f));
             CalabashMusic.Play("boss");
             Say("Ждан горел долго.\nТолпа молчала.");
             yield return Shot(7f, s + F * 4.5f + up * 2.2f, s + F * 3.2f + up * 2.4f, s + up * 2.2f, s + up * 2.4f);
@@ -132,6 +137,7 @@ namespace Calabash.Game
             Say("Он был голоден. Огонь тоже.\nИ они узнали друг друга.");
             yield return Close(zhdan, 6f, 2.4f, 1.9f, -0.6f, lookUp: 0.3f);
             Say("Огонь съел верёвки, хворост и столб.\nА Ждана доесть не смог: голод в нём был сильнее огня.");
+            StartCoroutine(Release(1.2f));
             yield return Shot(6.5f, s + F * 3f + r * 1.5f + up * 2f, s + F * 6.5f + r * 2.5f + up * 7.5f, s + up * 2.2f, s + up * 1.4f);
 
             // 9. белая вспышка, текст
@@ -197,7 +203,9 @@ namespace Calabash.Game
                 float k = t / dur;
                 target.position = Vector3.Lerp(from, to, k);
                 // сбоку и чуть впереди: видно и палача с факелом, и костёр, к которому он идёт
-                Vector3 p = target.position + dir * 1.2f - side * 3.6f + Vector3.up * 1.9f;
+                // к концу камера уходит палачу за плечо: костёр впереди, а не под объективом
+                float e = Mathf.SmoothStep(0f, 1f, k);
+                Vector3 p = target.position + dir * Mathf.Lerp(1.2f, -3.2f, e) - side * Mathf.Lerp(3.6f, 1.5f, e) + Vector3.up * Mathf.Lerp(1.9f, 2.3f, e);
                 Place(p, Vector3.Lerp(target.position + Vector3.up * 1.4f, S + Vector3.up * 1.8f, k * 0.5f));
                 yield return null;
             }
@@ -210,15 +218,25 @@ namespace Calabash.Game
             // стены и крыши не должны заслонять кадр: камера встаёт перед препятствием
             Vector3 d = pos - look;
             float len = d.magnitude;
-            if (len > 0.5f && Physics.SphereCast(look, 0.3f, d / len, out var hit, len - 0.3f, ~0, QueryTriggerInteraction.Ignore))
+            // луч начинается в 0,9 м от героя кадра: его собственное тело и столб за спиной камеру не притягивают
+            const float skip = 0.9f;
+            if (len > skip + 0.6f && Physics.SphereCast(look + d / len * skip, 0.25f, d / len, out var hit, len - skip - 0.25f, ~0, QueryTriggerInteraction.Ignore))
             {
-                float want = Mathf.Max(1.2f, hit.distance - 0.15f);
+                float want = Mathf.Max(1.6f, skip + hit.distance - 0.15f);
                 pulled = Mathf.Lerp(pulled < 0f ? want : pulled, want, 1f - Mathf.Exp(-Time.unscaledDeltaTime * 8f));
                 pos = look + d / len * Mathf.Min(pulled, len);
             }
             else pulled = -1f;
             cam.transform.position = pos;
             cam.transform.rotation = Quaternion.LookRotation(look - pos);
+            // заполняющий свет: одинаково освещает героя кадра и в 2 м, и в 15 м; у костра почти не нужен
+            if (fill != null)
+            {
+                float dist = (look - pos).magnitude;
+                float pyre = pyreLight != null ? Mathf.Clamp01(pyreLight.intensity / Mathf.Max(pyreIntensity, 0.01f)) : 0f;
+                fill.range = Mathf.Max(14f, dist * 1.8f);
+                fill.intensity = Mathf.Clamp(fillLevel * dist * dist, 1.5f, 220f) * Mathf.Lerp(1f, 0.25f, pyre);
+            }
         }
 
         // ------------------------------------------------------------------ огонь
@@ -253,15 +271,44 @@ namespace Calabash.Game
                 float k = Mathf.Clamp01(t / 4.5f);
                 if (pyreFire != null) em.rateOverTime = rate * Mathf.Lerp(0.15f, 1f, k);
                 if (pyreLight != null)
-                    pyreLight.intensity = Mathf.Lerp(2f, 30f, k) * (0.85f + 0.3f * Mathf.PerlinNoise(Time.unscaledTime * 8f, 2.3f));
+                    pyreLight.intensity = Mathf.Lerp(2f, pyreIntensity, k) * (0.85f + 0.3f * Mathf.PerlinNoise(Time.unscaledTime * 8f, 2.3f));
                 if (pyreSound != null) pyreSound.volume = k * GameSettings.Volume;
                 yield return null;
             }
             while (!done)
             {
-                if (pyreLight != null) pyreLight.intensity = 30f * (0.85f + 0.3f * Mathf.PerlinNoise(Time.unscaledTime * 8f, 2.3f));
+                if (pyreLight != null) pyreLight.intensity = pyreIntensity * (0.85f + 0.3f * Mathf.PerlinNoise(Time.unscaledTime * 8f, 2.3f));
                 yield return null;
             }
+        }
+
+        /// <summary>Ждан рвётся в верёвках: плавно включает дёрганье позы.</summary>
+        IEnumerator Struggle(float to, float dur)
+        {
+            if (bound == null) yield break;
+            float from = bound.struggle;
+            for (float t = 0f; t < dur; t += Time.unscaledDeltaTime)
+            {
+                bound.struggle = Mathf.Lerp(from, to, t / dur);
+                yield return null;
+            }
+            bound.struggle = to;
+        }
+
+        /// <summary>Верёвки сгорели: руки свободны, Ждан перестаёт биться.</summary>
+        IEnumerator Release(float delay)
+        {
+            yield return new WaitForSecondsRealtime(delay);
+            if (ropes != null) ropes.SetActive(false);
+            if (bound == null) yield break;
+            CalabashSfx.Play("fire_burst", S + Vector3.up * 1.5f, 0.8f, 1.2f);
+            for (float t = 0f; t < 1.2f; t += Time.unscaledDeltaTime)
+            {
+                bound.weight = 1f - t / 1.2f;
+                bound.struggle = Mathf.Lerp(1f, 0.15f, t / 1.2f);
+                yield return null;
+            }
+            bound.weight = 0f;
         }
 
         // ------------------------------------------------------------------ экран
