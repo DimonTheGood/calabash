@@ -23,6 +23,7 @@ from PIL import Image
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else "."
 REFLOOR = "--refloor" in sys.argv          # только срезать слабую альфу у готовых текстур (исходники не нужны)
+CEL_ONLY = "--cel" in sys.argv             # только перевести готовый T_Flame03 в рисованный вид и пересобрать T_SmallFlame01
 SMALL_ONLY = "--small" in sys.argv         # только пересобрать T_SmallFlame01 из готового T_Flame03 (исходники не нужны)
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Textures")
 K = os.path.join(SRC, "kenney_particlePack", "PNG")
@@ -140,6 +141,32 @@ def small_from_flame():
         out[oj * th:(oj + 1) * th, oi * tw:(oi + 1) * tw] = tile
     save(out, "T_SmallFlame01_16x4.png")
 
+
+def cel_flame():
+    """Рисованное пламя: кадры 128×256 вместо 64×128, резкий край силуэта и четыре ровных тона
+    (ядро, жёлтый, оранжевый, тёмно-красная кромка). Мягкий флипбук вблизи расплывался в пятна,
+    а манга-фильтр рвал его полутона."""
+    name = "T_Flame03_16x4.png"
+    im = Image.open(os.path.join(OUT, name)).convert("RGBA")
+    if im.size[0] < 2048:
+        im = im.resize((im.size[0] * 2, im.size[1] * 2), Image.BICUBIC)
+    a = np.array(im).astype(float)
+    alpha = a[..., 3] / 255
+    lum = (0.3 * a[..., 0] + 0.5 * a[..., 1] + 0.2 * a[..., 2]) / 255 * np.clip(alpha * 1.6, 0, 1)
+    tones = [(0.00, (0x9E, 0x2A, 0x06)), (0.36, (0xE8, 0x5A, 0x0A)), (0.58, (0xFF, 0x9C, 0x2A)), (0.80, (0xFF, 0xE2, 0x9A))]
+    rgb = np.zeros(a.shape[:2] + (3,))
+    for lo, col in tones:
+        w = smooth(lo - 0.025, lo + 0.025, lum)[..., None]
+        rgb = rgb * (1 - w) + np.array(col, float) * w
+    out = np.dstack([rgb, smooth(0.30, 0.42, alpha) * 255])
+    Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGBA").save(os.path.join(OUT, name))
+    print(f"{name}: {os.path.getsize(os.path.join(OUT, name)) // 1024} KB")
+
+
+if CEL_ONLY:
+    cel_flame()
+    small_from_flame()
+    sys.exit(0)
 
 if SMALL_ONLY:
     small_from_flame()

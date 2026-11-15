@@ -79,6 +79,7 @@ python3 vfx/tools/make_fire_textures.py <папка с архивами>
 ```
 
 Только срезать слабую альфу у готовых текстур, без архивов: `python3 vfx/tools/make_fire_textures.py . --refloor` (один раз: повтор срежет ещё).
+- `--cel` переводит готовый `T_Flame03_16x4.png` в рисованный вид (кадры 128×256, резкий край, четыре ровных тона) и пересобирает мелкое пламя.
 - `--small` пересобирает `T_SmallFlame01_16x4.png` из готового `T_Flame03_16x4.png` (исходники не нужны).
 - Руки от первого лица — на своём слое рендера (`ZhdanArmsView.ArmsRenderingLayer`): свет огня над головой их не трогает, их светит отдельный свет `ArmsFireLight` из `ZhdanFireLight`. Слои света URP берёт из `UniversalAdditionalLightData.renderingLayers`.
 
