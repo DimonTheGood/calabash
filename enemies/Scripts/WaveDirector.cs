@@ -33,9 +33,9 @@ namespace Calabash.Enemies
         public Vector3[] spawnPoints = new Vector3[0];
         public Vector2 spawnDistance = new Vector2(18f, 45f);
         [Tooltip("Враги выходят не все сразу, а по одному с этим интервалом, с")]
-        public float spawnInterval = 0.6f;
+        public float spawnInterval = 0.45f;
         [Tooltip("Не больше врагов одновременно на улице")]
-        public int maxAlive = 9;
+        public int maxAlive = 12;
 
         public List<Wave> waves = new List<Wave>();
         public float firstWaveDelay = 4f;
@@ -45,9 +45,9 @@ namespace Calabash.Enemies
         public bool externalFlow;
         [Tooltip("Передышка не идёт, пока true (выбор улучшения)")]
         public bool holdBreak;
-        public float breakTime = 6f;
-        [Tooltip("Топливо за пройденную волну")] public float waveReward = 25f;
-        [Tooltip("Огонь прогорает во время волны, ед./с")] public float fuelDecayInWave = 1.2f;
+        public float breakTime = 5f;
+        [Tooltip("Топливо за пройденную волну")] public float waveReward = 15f;
+        [Tooltip("Огонь прогорает во время волны, ед./с")] public float fuelDecayInWave = 1.8f;
         [Tooltip("Множитель прогорания (улучшение «Медленное тление»)")] public float fuelDecayMultiplier = 1f;
 
         public enum Phase { Waiting, Intro, Fighting, Break, Victory, GameOver }
@@ -116,12 +116,12 @@ namespace Calabash.Enemies
 
         public static List<Wave> DefaultWaves() => new List<Wave>
         {
-            new Wave { title = "Мужики с вилами", pitchforks = 4, meleeSlots = 2 },
-            new Wave { title = "Стража", spearmen = 2, pitchforks = 3, meleeSlots = 2 },
-            new Wave { title = "Вода!", spearmen = 2, pitchforks = 2, buckets = 2, meleeSlots = 2 },
-            new Wave { title = "Лучники", spearmen = 3, archers = 2, buckets = 1, meleeSlots = 2 },
-            new Wave { title = "Облава", spearmen = 3, pitchforks = 4, archers = 2, buckets = 2, meleeSlots = 3 },
-            new Wave { title = "Палач Корней", executioners = 1, spearmen = 2, buckets = 1, archers = 1, meleeSlots = 3 },
+            new Wave { title = "Мужики с вилами", pitchforks = 5, meleeSlots = 2 },
+            new Wave { title = "Стража", spearmen = 3, pitchforks = 4, meleeSlots = 3 },
+            new Wave { title = "Вода!", spearmen = 3, pitchforks = 3, buckets = 3, meleeSlots = 3 },
+            new Wave { title = "Лучники", spearmen = 4, pitchforks = 2, archers = 3, buckets = 2, meleeSlots = 3 },
+            new Wave { title = "Облава", spearmen = 5, pitchforks = 5, archers = 3, buckets = 3, meleeSlots = 4 },
+            new Wave { title = "Палач Корней", executioners = 1, spearmen = 4, pitchforks = 3, buckets = 2, archers = 2, meleeSlots = 4 },
         };
 
         void Update()

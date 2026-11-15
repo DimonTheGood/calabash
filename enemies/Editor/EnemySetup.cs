@@ -94,29 +94,29 @@ namespace Calabash.Enemies.EditorTools
             switch (e.kind)
             {
                 case EnemyKind.Spearman:
-                    e.maxHealth = 90f; e.mass = 1.6f; e.attackClip = "Chop"; e.clipStrikeAt = 0.4f;
-                    e.attackRange = 2.8f; e.windup = 0.6f; e.recovery = 0.55f; e.cooldown = new Vector2(1.0f, 1.8f);
-                    e.damage = 12f; e.knockback = 7f; e.lunge = 5f; e.hitWidth = 1.0f; e.runSpeed = 4.8f;
+                    e.maxHealth = 120f; e.mass = 1.6f; e.attackClip = "Chop"; e.clipStrikeAt = 0.4f;
+                    e.attackRange = 2.9f; e.windup = 0.52f; e.recovery = 0.45f; e.cooldown = new Vector2(0.8f, 1.4f);
+                    e.damage = 18f; e.knockback = 8f; e.lunge = 6f; e.hitWidth = 1.1f; e.runSpeed = 5.6f;
                     break;
                 case EnemyKind.Pitchfork:
-                    e.maxHealth = 40f; e.mass = 1f; e.attackClip = "Thrust"; e.clipStrikeAt = 0.4f;
-                    e.attackRange = 2.3f; e.windup = 0.42f; e.recovery = 0.5f; e.cooldown = new Vector2(0.8f, 1.6f);
-                    e.damage = 7f; e.knockback = 4f; e.lunge = 7f; e.hitWidth = 0.9f; e.runSpeed = 5.4f;
+                    e.maxHealth = 55f; e.mass = 1f; e.attackClip = "Thrust"; e.clipStrikeAt = 0.4f;
+                    e.attackRange = 2.4f; e.windup = 0.38f; e.recovery = 0.4f; e.cooldown = new Vector2(0.6f, 1.2f);
+                    e.damage = 9f; e.knockback = 5f; e.lunge = 8f; e.hitWidth = 1.0f; e.runSpeed = 6.3f;
                     break;
                 case EnemyKind.Bucket:
-                    e.maxHealth = 70f; e.mass = 1.5f; e.attackClip = "Throw"; e.clipStrikeAt = 0.4f;
-                    e.keepDistance = new Vector2(6f, 13f); e.windup = 0.65f; e.recovery = 0.5f; e.cooldown = new Vector2(2.2f, 3.4f);
-                    e.damage = 7f; e.knockback = 5f; e.lunge = 0f; e.runSpeed = 4.2f; e.splashRadius = 1.8f;
+                    e.maxHealth = 90f; e.mass = 1.5f; e.attackClip = "Throw"; e.clipStrikeAt = 0.4f;
+                    e.keepDistance = new Vector2(6f, 13f); e.windup = 0.6f; e.recovery = 0.45f; e.cooldown = new Vector2(1.6f, 2.6f);
+                    e.damage = 12f; e.knockback = 6f; e.lunge = 0f; e.runSpeed = 5f; e.splashRadius = 2.2f;
                     break;
                 case EnemyKind.Archer:
-                    e.maxHealth = 55f; e.mass = 1.2f; e.attackClip = "Shoot"; e.clipStrikeAt = 0.5f;
-                    e.keepDistance = new Vector2(10f, 20f); e.windup = 1.0f; e.recovery = 0.5f; e.cooldown = new Vector2(2.0f, 3.2f);
-                    e.damage = 10f; e.knockback = 3f; e.lunge = 0f; e.runSpeed = 4.6f; e.projectileSpeed = 38f;
+                    e.maxHealth = 70f; e.mass = 1.2f; e.attackClip = "Shoot"; e.clipStrikeAt = 0.5f;
+                    e.keepDistance = new Vector2(10f, 20f); e.windup = 0.85f; e.recovery = 0.45f; e.cooldown = new Vector2(1.5f, 2.5f);
+                    e.damage = 15f; e.knockback = 4f; e.lunge = 0f; e.runSpeed = 5.4f; e.projectileSpeed = 46f;
                     break;
                 case EnemyKind.Executioner:
-                    e.maxHealth = 450f; e.mass = 4f; e.poise = 30f; e.attackClip = "Chop"; e.clipStrikeAt = 0.4f;
-                    e.attackRange = 3.4f; e.windup = 1.0f; e.recovery = 0.9f; e.cooldown = new Vector2(1.2f, 2.0f);
-                    e.damage = 26f; e.knockback = 12f; e.lunge = 0f; e.runSpeed = 3.4f; e.walkSpeed = 1.6f; e.turnSpeed = 220f;
+                    e.maxHealth = 700f; e.mass = 4f; e.poise = 45f; e.attackClip = "Chop"; e.clipStrikeAt = 0.4f;
+                    e.attackRange = 3.6f; e.windup = 0.85f; e.recovery = 0.75f; e.cooldown = new Vector2(0.9f, 1.6f);
+                    e.damage = 38f; e.knockback = 14f; e.lunge = 2f; e.runSpeed = 4.4f; e.walkSpeed = 2f; e.turnSpeed = 260f;
                     e.hitStun = 0.6f;
                     break;
             }

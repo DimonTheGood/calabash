@@ -55,6 +55,7 @@ namespace Calabash.Vfx
             lamp.shadows = shadows ? LightShadows.Soft : LightShadows.None;
             lamp.shadowStrength = 0.9f;
             lamp.shadowNearPlane = shadowNearPlane;
+            lamp.shadowResolution = UnityEngine.Rendering.LightShadowResolution.Low;   // точечный свет — 6 карт теней, иначе не влезают в атлас
             lamp.range = maxRange;
             lamp.intensity = maxIntensity;
         }

@@ -20,7 +20,7 @@ namespace Calabash.Enemies
         public static Calabash.Vfx.ZhdanFireVfx Fx { get; private set; }
 
         /// <summary>Сколько секунд после попадания по Ждану не бьют.</summary>
-        public static float graceTime = 0.45f;
+        public static float graceTime = 0.3f;
         /// <summary>Множитель урона по Ждану (сложность, улучшения).</summary>
         public static float damageMultiplier = 1f;
         /// <summary>Любой удар поджигает врага (улучшение «Поджигатель»).</summary>
