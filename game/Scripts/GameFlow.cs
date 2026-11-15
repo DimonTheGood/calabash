@@ -158,14 +158,20 @@ namespace Calabash.Game
             offer = Upgrades.Offer();
             if (offer.Count == 0) return;
             mode = Mode.Upgrade;
+            upgradeShownAt = Time.unscaledTime;
             if (director != null) director.holdBreak = true;
             SetControl(false);
         }
         int killsCounted;
 
+        [Tooltip("Сколько секунд после появления карточек улучшений выбор не принимается: чтобы не выбрать случайно, добивая волну")]
+        public float upgradeInputDelay = 1.5f;
+        float upgradeShownAt;
+        bool UpgradeLocked => Time.unscaledTime - upgradeShownAt < upgradeInputDelay;
+
         void Pick(int i)
         {
-            if (offer == null || i < 0 || i >= offer.Count) return;
+            if (offer == null || i < 0 || i >= offer.Count || UpgradeLocked) return;
             Upgrades.Take(offer[i], player);
             CalabashSfx.Play2D("fire_burst", 0.9f, 1.1f);
             offer = null;
@@ -373,13 +379,14 @@ namespace Calabash.Game
             Ui.Shade(Color.black, 0.55f);
             GUI.Label(new Rect(0, h * 0.14f, w, 70 * s), "ОГОНЬ РАСТЁТ", Ui.Title(56, Ui.FireCore));
             GUI.Label(new Rect(0, h * 0.14f + 70 * s, w, 36 * s), "выбери одно · 1, 2, 3 или мышью", Ui.Title(22, Ui.Paper));
+            bool locked = UpgradeLocked;
             float cw = 330 * s, ch = 300 * s, gap = 30 * s;
             float x = w * 0.5f - (offer.Count * cw + (offer.Count - 1) * gap) * 0.5f, y = h * 0.34f;
             for (int i = 0; i < offer.Count; i++)
             {
                 var r = new Rect(x + i * (cw + gap), y, cw, ch);
                 var d = offer[i];
-                bool hover = r.Contains(Event.current.mousePosition);
+                bool hover = !locked && r.Contains(Event.current.mousePosition);
                 Ui.Panel(r, 1f);
                 if (hover) Ui.Frame(r, Ui.Fire, 5f);
                 GUI.Label(new Rect(r.x, r.y + 18 * s, r.width, 40 * s), (i + 1).ToString(), Ui.Title(34, Ui.Blood));
@@ -387,7 +394,16 @@ namespace Calabash.Game
                 GUI.Label(new Rect(r.x + 24 * s, r.y + 150 * s, r.width - 48 * s, 120 * s), d.text, Ui.Text(22, Ui.Ink, TextAnchor.UpperCenter));
                 int have = Upgrades.Count(d.id);
                 if (d.max > 1) GUI.Label(new Rect(r.x, r.yMax - 40 * s, r.width, 30 * s), $"{have}/{d.max}", Ui.Text(18, Ui.Gray, TextAnchor.MiddleCenter));
-                if (GUI.Button(r, GUIContent.none, GUIStyle.none)) Pick(i);
+                if (locked) Ui.Fill(r, new Color(0f, 0f, 0f, 0.45f));
+                else if (GUI.Button(r, GUIContent.none, GUIStyle.none)) Pick(i);
+            }
+            if (locked)
+            {
+                // полоса под карточками: сколько ещё ждать до выбора
+                float k = Mathf.Clamp01((Time.unscaledTime - upgradeShownAt) / Mathf.Max(upgradeInputDelay, 0.01f));
+                float bw = offer.Count * cw + (offer.Count - 1) * gap;
+                Ui.Fill(new Rect(x, y + ch + 24 * s, bw, 6 * s), new Color(1f, 1f, 1f, 0.15f));
+                Ui.Fill(new Rect(x, y + ch + 24 * s, bw * k, 6 * s), Ui.Fire);
             }
         }
 

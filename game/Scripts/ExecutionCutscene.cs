@@ -65,7 +65,7 @@ namespace Calabash.Game
             if (pyreEmbers != null) pyreEmbers.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             if (pyreSmoke != null) pyreSmoke.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             if (pyreLight != null) pyreLight.intensity = 0f;
-            if (korney != null) korney.transform.position = korneyFrom;
+            if (korney != null) Root(korney).position = korneyFrom;
             foreach (var a in crowd) Anim(a, Random.value < 0.35f ? "Talk" : "Idle", Random.value);
             Anim(gavrila, "Idle");
             Anim(nikodim, "Idle");
@@ -115,7 +115,7 @@ namespace Calabash.Game
             // 6. Корней идёт с факелом
             Anim(korney, "Walk");
             Say("Палач Корней взял факел.");
-            yield return Track(korney != null ? korney.transform : null, korneyFrom, korneyTo, 7f);
+            yield return Track(korney != null ? Root(korney) : null, korneyFrom, korneyTo, 7f);
             Anim(korney, "Idle");
 
             // 7. поджог
@@ -211,6 +211,10 @@ namespace Calabash.Game
             }
             target.position = to;
         }
+
+        /// <summary>Корень персонажа. Модель внутри развёрнута на 180° (ModelYaw), поэтому двигать и поворачивать
+        /// надо корень: поворот самой модели ставил палача спиной вперёд.</summary>
+        static Transform Root(Animator a) => a.transform.parent != null ? a.transform.parent : a.transform;
 
         void Place(Vector3 pos, Vector3 look)
         {
