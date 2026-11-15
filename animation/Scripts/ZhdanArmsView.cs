@@ -45,6 +45,18 @@ namespace Calabash.Animation
         [Tooltip("Доля поворота кулака, которую повторяет предплечье")]
         [Range(0f, 1f)] public float forearmRollShare = 0.5f;
 
+        /// <summary>Слой рендера рук. Свет огня Ждана над головой (1/d², в 1 м от рук) их не освещает,
+        /// руки светит свой мягкий свет ZhdanFireLight. Иначе на ударе рука уходит в белое.</summary>
+        public const uint ArmsRenderingLayer = 1u << 1;
+
+        void Start()
+        {
+            foreach (var t in new[] { upperLeft, forearmLeft, fistLeft, upperRight, forearmRight, fistRight })
+                if (t != null)
+                    foreach (var r in t.GetComponentsInChildren<Renderer>(true))
+                        if (r is MeshRenderer || r is SkinnedMeshRenderer) r.renderingLayerMask = ArmsRenderingLayer;
+        }
+
         void LateUpdate()
         {
             Solve(-1f, leftTarget, upperLeft, forearmLeft, fistLeft);
