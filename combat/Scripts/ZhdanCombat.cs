@@ -125,6 +125,7 @@ namespace Calabash.Combat
 
         [Header("Стоп-кадр")]
         public bool hitstopEnabled = true;
+        [Tooltip("Стоп-кадр при добивании, с (не короче)")] public float killHitstop = 0.09f;
         [Tooltip("Масштаб времени во время стоп-кадра")] public float hitstopTimeScale = 0.02f;
         public float maxHitstop = 0.2f;
 
@@ -486,6 +487,8 @@ namespace Calabash.Combat
             if (r.killed)
             {
                 if (fuel != null) fuel.Add(fuelPerKill);
+                Hitstop(Mathf.Max(s.hitstop * 1.8f, killHitstop));          // добивание — стоп-кадр длиннее
+                if (cameraFx != null) cameraFx.AddShake(s.shake + 0.04f);
                 onKill.Invoke();
             }
         }

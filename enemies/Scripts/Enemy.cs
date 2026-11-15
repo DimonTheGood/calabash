@@ -140,6 +140,8 @@ namespace Calabash.Enemies
         }
 
         // ------------------------------------------------------------------ удары по врагу
+        EnemyDeath death;
+
         public HitResult TakeHit(in HitInfo hit)
         {
             if (!IsAlive) return default;
@@ -278,6 +280,8 @@ namespace Calabash.Enemies
             timer = 4f;
             Play("Death", 0.06f);
             capsule.enabled = false;
+            if (burnFx == null) burnFx = MakeBurnFx();      // улетающее тело тянет огненный хвост и светит само
+            death = EnemyDeath.Begin(this, hit, Burning, burnFx, arrowMaterial);     // добивание: улетел, сгорел, закрутило
             CalabashSfx.Play("death", transform.position + Vector3.up * 1.5f, 1f, kind == EnemyKind.Executioner ? 0.7f : Random.Range(0.92f, 1.08f));
             All.Remove(this);
             Died?.Invoke(this);
@@ -329,7 +333,7 @@ namespace Calabash.Enemies
                     break;
 
                 case State.Recover:
-                    if (timer <= 0f)
+                    if (death == null && timer <= 0f)
                     {
                         ReleaseToken();
                         cooldownTimer = Random.Range(cooldown.x, cooldown.y);
