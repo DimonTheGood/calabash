@@ -25,8 +25,8 @@ namespace Calabash.Vfx
 
         [Header("Дрожание и вспышки")]
         [Range(0f, 0.6f)] public float flicker = 0.22f;
-        public float flareIntensity = 30f;
-        public float flareRange = 7f;
+        [Tooltip("Добавка яркости на вспышке. Больше 15 — руки от первого лица пересвечены добела")] public float flareIntensity = 14f;
+        public float flareRange = 9f;
         [Tooltip("Как быстро гаснет вспышка, 1/с")] public float flareDecay = 3.5f;
 
         [Header("Тени")]

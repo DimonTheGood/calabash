@@ -187,6 +187,13 @@ namespace Calabash.Enemies
             float target = burnFx != null && burnFx.isEmitting
                 ? burnLightIntensity * (0.75f + 0.5f * Mathf.PerlinNoise(Time.time * 9f, burnSeed))
                 : 0f;
+            // вплотную к камере свет гаснет: иначе руки от первого лица пересвечены добела
+            var mc = Camera.main;
+            if (mc != null)
+            {
+                float cd = Vector3.Distance(mc.transform.position, burnLight.transform.position);
+                target *= Mathf.Lerp(0.2f, 1f, Mathf.Clamp01((cd - 1f) / 3f));
+            }
             burnLight.intensity = Mathf.MoveTowards(burnLight.intensity, target, dt * 10f);
             burnLight.enabled = burnLight.intensity > 0.01f;
         }
